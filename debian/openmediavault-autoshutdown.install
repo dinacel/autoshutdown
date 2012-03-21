@@ -1,3 +1,0 @@
-src/autoshutdown.conf etc
-src/autoshutdown.sh usr/local/bin
-src/autoshutdown etc/init.d
