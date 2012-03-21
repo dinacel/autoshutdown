@@ -1,4 +1,4 @@
-openmediavault-autoshutdown (0.1) stable; urgency=low
+autoshutdown (0.1) stable; urgency=low
 
   * Initial autoshutdown
   * The date could be created with: `date -R`

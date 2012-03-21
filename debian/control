@@ -10,4 +10,4 @@ Package: autoshutdown
 Architecture: all
 Depends: fping
 Priority: optional
-Description: OpenMediaVault autoshutdown Plugin
+Description: autoshutdown
