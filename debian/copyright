@@ -1,0 +1,6 @@
+Format: http://dep.debian.net/deps/dep5
+Upstream-Contact: Marcel Beck <marcel.beck@mbeck.org>
+Source: http://omv-plugins.org
+
+Copyright: 2011 Marcel Beck <marcel.beck@mbeck.org>
+License: GPL-3

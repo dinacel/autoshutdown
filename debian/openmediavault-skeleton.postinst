@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# This file is part of OpenMediaVault-autoshutdown.
+#
+# @license   http://www.gnu.org/licenses/gpl.html GPL Version 3
+# @author    Marcel Beck <marcel.beck@mbeck.org>
+# @copyright Copyright (c) 2012 Marcel Beck
+#
+# OpenMediaVault is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# OpenMediaVault is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with OpenMediaVault. If not, see <http://www.gnu.org/licenses/>.
+
+set -e
+
+. /etc/default/openmediavault
+. /usr/share/openmediavault/scripts/helper-functions
+
+# Do what ever you need to do, before the package can be installed
+
+case "$1" in
+	configure)
+		########################################################################
+		# Set the default settings of the autoshutdown package to those
+		# expected by OpenMediaVault.
+		########################################################################
+		if [ -z "$2" ]; then
+			echo "Updating init script links and actions"
+			invoke-rc.d --force autoshutdown stop
+			update-rc.d autoshutdown disable &>/dev/null
+		fi
+
+		########################################################################
+		# Update file permissions.
+		########################################################################
+		echo "Updating permissions"
+		omv_install_fixperms
+		
+		if ! omv_config_exists "//services/autoshutdown"; then
+			echo "Initial Configuration"
+			object="<enable>0</enable>"
+			object="${object}<debug>false</debug>"
+
+			object="${object}<flag>6</flag>"
+			object="${object}<sleep>180</sleep>"
+			object="${object}<range>2..254</range>"
+			object="${object}<checkclockactive>false</checkclockactive>"
+			object="${object}<uphours>06..20</uphours>"
+			object="${object}<nsocketnumbers>22,139,445,10000,49152</nsocketnumbers>"
+			object="${object}<loadprocnames>smbd,nfsd,transmission-daemon,mt-daapd</loadprocnames>"
+			object="${object}<tempprocnames>in.tftpd</tempprocnames>"
+			object="${object}<syslog>true</syslog>"
+			object="${object}<verbose>false</verbose>"
+
+			omv_config_add_element "//services" "autoshutdown" "${object}" true
+		fi
+
+	;;
+
+	abort-upgrade|abort-remove|abort-deconfigure)
+	;;
+
+	*)
+		echo "postinst called with unknown argument '$1'" >&2
+		exit 1
+	;;
+esac
+
+exit 0

@@ -1,0 +1,6 @@
+openmediavault-autoshutdown (0.1) stable; urgency=low
+
+  * Initial autoshutdown
+  * The date could be created with: `date -R`
+  
+ -- Marcel Beck <marcel.beck@mbeck.org>  Tue, 22 Nov 2011 19:05:14 +0100

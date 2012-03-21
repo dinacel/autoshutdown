@@ -1,0 +1,3 @@
+src/autoshutdown.conf /etc/autoshutdown.conf
+src/autoshutdown.sh /usr/local/bin/autoshutdown.sh
+src/autoshutdown /etc/init.d/autoshutdown
