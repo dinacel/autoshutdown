@@ -1,3 +1,4 @@
 src/autoshutdown.conf etc
+src/autoshutdown.conf.default etc
 src/autoshutdown etc/init.d
 src/autoshutdown.sh usr/local/bin

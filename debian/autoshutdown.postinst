@@ -22,6 +22,7 @@ case "$1" in
 		# Set the default settings of the autoshutdown package to those
 		# expected by OpenMediaVault.
 		########################################################################
+		update-rc.d autoshutdown defaults
 		if [ -z "$2" ]; then
 			echo "Updating init script links and actions"
 			invoke-rc.d --force autoshutdown stop
