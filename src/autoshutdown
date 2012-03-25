@@ -28,26 +28,33 @@ DAEMON_OPTS=""
 export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
 
 case "$1" in
-  start)
-        echo -n "Starting $NAME : " $DAEMON
-	start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --exec $DAEMON 
-        echo "."
-	;;
-  stop)
-        echo -n "Stopping $NAME : " $DAEMON
-	start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
-        echo "."
-	;;
-  restart)
-        echo -n "Restarting $NAME : " $DAEMON
-	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
-	start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --exec $DAEMON
-	 echo "."
-	;;
+	start)
+		echo -n "Starting $NAME : " $DAEMON
+		start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --exec $DAEMON 
+		echo "."
+		logger -t /etc/init.d/autoshutdown "Autoshutdown-script starting ..."
+		;;
+  
+	stop)
+		echo -n "Stopping $NAME : " $DAEMON
+		start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
+		echo "."
+		logger -t /etc/init.d/autoshutdown "Autoshutdown-script starting ..."
+		;;
 
-  *)
-	echo "Usage: "$1" {start|stop|restart}"
-	exit 1
+	restart)
+		echo -n "Restarting $NAME : " $DAEMON
+		start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
+		start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --exec $DAEMON
+		echo "."
+		logger -t /etc/init.d/autoshutdown "Autoshutdown-script restarting ..."
+		;;
+
+	*)
+		echo "Usage: "$1" {start|stop|restart}"
+		exit 1
+		;;
 esac
 
 exit 0
+ 

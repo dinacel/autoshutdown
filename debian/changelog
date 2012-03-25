@@ -1,3 +1,9 @@
+autoshutdown (0.3) stable; urgency=low
+
+  * Update to 1.08.1
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Sun, 25 Mar 2012 20:00:23 +0200
+
 autoshutdown (0.2) stable; urgency=low
 
   * Update to 1.08_2403
