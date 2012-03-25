@@ -1,6 +1,11 @@
+autoshutdown (0.2) stable; urgency=low
+
+  * Update to 1.08_2403
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Sun, 25 Mar 2012 18:35:12 +0200
+
 autoshutdown (0.1) stable; urgency=low
 
   * Initial autoshutdown
-  * The date could be created with: `date -R`
   
  -- Marcel Beck <marcel.beck@mbeck.org>  Tue, 22 Nov 2011 19:05:14 +0100
