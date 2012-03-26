@@ -3,7 +3,6 @@ Autoshutdown-Script for OMV, Debian and Ubuntu:
 
 Automatic install:
 ------------------
-
 run "./install.sh" on the CLI
 
 

@@ -20,14 +20,14 @@ binary-indep: install
 	dh_install
 
 	# Remove '.svn' directories
-	find $(CURDIR)/debian/openmediavault-autoshutdown -name .svn -type d -print0 -prune | xargs -0 rm -rf
+	find $(CURDIR)/debian/autoshutdown -name .svn -type d -print0 -prune | xargs -0 rm -rf
 	
 	# Remove '.git' directories
-	find $(CURDIR)/debian/openmediavault-autoshutdown -name .git -type d -print0 -prune | xargs -0 rm -rf
+	find $(CURDIR)/debian/autoshutdown -name .git -type d -print0 -prune | xargs -0 rm -rf
 	
 	# Do anything else you need to do before the package gets created
-	chmod +x $(CURDIR)/debian/autoshutdown/src/autoshutdown.sh
-	chmod +x $(CURDIR)/debian/autoshutdown/src/autoshutdown
+	chmod +x $(CURDIR)/debian/autoshutdown/usr/local/bin/autoshutdown.sh
+	chmod +x $(CURDIR)/debian/autoshutdown/etc/init.d/autoshutdown
 
 	dh_installchangelogs
 	dh_installdebconf

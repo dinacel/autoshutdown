@@ -18,8 +18,14 @@ echo
 cp autoshutdown.conf /etc/ 
 f_checksuccess "autoshutdown.conf"
 
+cp autoshutdown.default /etc/ 
+f_checksuccess "autoshutdown.default"
+
+cp autoshutdownlog.conf /etc/rsyslog.d/ 
+f_checksuccess "autoshutdownlog.conf"
+
 cp autoshutdown.sh /usr/local/bin/
-f_checksuccess "move move autoshutdown.sh"
+f_checksuccess "move autoshutdown.sh"
 
 if [ ! -x /usr/local/bin/autoshutdown.sh ]; then
 	echo "Make autoshutdown.sh executable"

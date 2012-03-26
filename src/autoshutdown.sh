@@ -35,234 +35,92 @@
 #							: autoread IP from ifconfig (only eth0 at the moment)
 #							: minor changes 
 # 							: more config-checks
-#
+# 2012/Mar/25		0.1.08.1: expert-setting: SHUTDOWNCOMMAND (see autoshutdown.conf)
+#							: expert-setting: PINGLIST (see autoshutdown.conf)
+#							: Log-Entry in /var/log/syslog when shutdown is initiated
+#							: autodetect NICs and check all of them
+#							: code-cleanup
+
 
 ######## VARIABLE DEFINITION ########
 RESULT=0               # declare reusable RESULT variable to check function return values
-ACTIVEIPS=""            # declare empty list of active IPs
 
 # Variables that normal users should normaly not define - PowerUsers can do it here or add it to the config
 LPREPEAT=10         	# number of test cycles for finding and active L-Process (default=10)
 TPREPEAT=5            	# number of test cycles for finding and active T-Process (default=5)
 
 LOGGER="/usr/bin/logger"  	 # path and name of logger (default="/usr/bin/logger")
-FACILITY="local6"         	# facility to log to -> see syslog.conf  
-							# for a separate Log, add the line (default="local6")
+FACILITY="local6"         	# facility to log to -> see rsyslog.conf
+
+							# for a separate Log:
+
+							# Put the file "autoshutdownlog.conf" in /etc/rsyslog.d/
+
+							# OLD: add the line (default="local6")
 							# "local6.* %/var/log/autoshutdown.log" to syslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.1.07"         # script version information
+VERSION="0.1.08"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
-
-logger -s -t "$(date '+%b%e - %H:%M:%S'): $USER - : $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'"
-logger -s -t "$(date '+%b%e - %H:%M:%S'): $USER - : $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
-
-# libs.sh has settings for logging inside. If the file does not exist, load defaults
-if [ -f /usr/local/bin/libs.sh ]; then
-	. /usr/local/bin/libs.sh
-	[[ $? = 0 ]] && { logger -s -t "$(date '+%b%e - %H:%M:%S'): $USER - : $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' libs.sh correctly loaded'"; }
-else
-	logger -s -t "$(date '+%b%e - %H:%M:%S'): $USER - : $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' libs.sh-File not found! Loading logging defaults'"
-
-	################################################################
-	#
-	#   name      : _log
-	#   parameter   : $LOGMESSAGE : logmessage in format "PRIORITY: MESSAGE"
-	#   return      : none
-	#
-	_log()
-	{(
-		[[ "$*" =~ ^([A-Za-z]*):(.*) ]] &&
-			{
-				PRIORITY=${BASH_REMATCH[1]}
-				LOGMESSAGE=${BASH_REMATCH[2]}
-				[[ "$(basename "$0")" =~ ^(.*)\. ]] && LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
-			}
-
-		if $VERBOSE ; then
-			# next line only with implementation where logger does not support option '-s'
-			# echo "$(date '+%b %e %H:%M:%S'):$LOGMESSAGE"
-
-			[ $SYSLOG ] && $LOGGER -s -t "$(date '+%b %e %H:%M:%S'): $USER" -p $FACILITY.$PRIORITY "$LOGMESSAGE"
-
-		else
-			[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$LOGMESSAGE"
-
-		fi   # > if [ "$VERBOSE" = "NO" ]; then
-
-	)}
-fi
-
-#### Reading Config-Variables ####
-if [ -f /etc/autoshutdown.conf ]; then
-	. /etc/autoshutdown.conf
-	_log "INFO: /etc/shutdown.conf loaded"
-else
-	_log "WARN: cfg-File not found! Please check Path /usr/local/bin for autoshutdown.conf"
-	exit 1
-fi
-
-# Read IP-Adress and SERVERIP from 'ifconfig eth0'
-### TODO: Make other NW-adapters (bonding) work
-
-# If SERVERIP and CLASS is uncommented in autoshutdown.conf skip reading it from ifconfig
-if [ -z "$SERVERIP" -a -z "$CLASS" ]; then
-	_log "INFO: Reading OMV-IP from 'ifconfig eth0'"
-	IPFROMIFCONFIG=$(ifconfig eth0 | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')
-	SERVERIP=$(echo $IPFROMIFCONFIG | sed 's/.*\.//g')
-	CLASS=$(echo $IPFROMIFCONFIG | sed 's/\(.*\..*\..*\)\..*/\1/g')
-else 
-	if [ -z "$SERVERIP" o -z "$CLASS" ]; then
-		_log "WARN: Either SERVERIP or CLASS is not configured in autoshutdown.conf"
-		_log "WARN: Please check the config!"
-		_log "WARN: exiting ..."
-		exit 1
-	fi
-fi
-
-if $DEBUG; then 
-	_log "DEBUG: IPFROMIFCONFIG: $IPFROMIFCONFIG"
-	_log "DEBUG: SERVERIP: $SERVERIP"
-	_log "DEBUG: CLASS: $CLASS"
-fi
-
-## Check Parameters from Config and setting default variables:
-_log "INFO: Checking config"
-if [ ! -z "$AUTOUNRARCHECK" ]; then
-	[[ "$AUTOUNRARCHECK" = "true" || "$AUTOUNRARCHECK" = "false" ]] || { _log "WARN: AUTOUNRARCHECK not set properly. It has to be 'true' or 'false'."
-			_log "WARN: Set AUTOUNRARCHECK to false"
-			AUTOUNRARCHECK="false"; }
-fi
-
-if [ ! -z "$STATUSFILECHECK" ]; then
-	[[ "$STATUSFILECHECK" = "true" || "$STATUSFILECHECK" = "false" ]] || { _log "WARN: STATUSFILECHECK not set properly. It has to be 'true' or 'false'."
-			_log "WARN: Set STATUSFILECHECK to false"
-			STATUSFILECHECK="false"; }
-fi
-
-[[ "$CHECKCLOCKACTIVE" = "true" || "$CHECKCLOCKACTIVE" = "false" ]] || { _log "WARN: CHECKCLOCKACTIVE not set properly. It has to be 'true' or 'false'."
-		_log "WARN: Set CHECKCLOCKACTIVE to false"
-		CHECKCLOCKACTIVE="false"; }
-
-[[ "$CLASS" =~ ^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)$ ]] || { 
-		_log "WARN: Invalid parameter format: Class: nnn.nnn.nnn]"
-		_log "WARN: It is set to '$CLASS', which is not a correct syntax. Maybe parsing 'ifconfig eth0' did something wrong"
-		_log "WARN: Uncomment the CLASS- and SERVERIP-Line in autoshutdown.conf and change it to your needs to bypass this error"
-		_log "WARN: Please report this Bug and the CLI-output of 'ifconfig eth0'"
-		_log "WARN: exiting ..."
-		exit 1; }
-
-[[ "$FLAG" =~ ^[0-9]{1,3}$ ]] || { 
-		_log "WARN: Invalid parameter format: Flag"
-		_log "WARN: You set it to '$FLAG', which is not a correct syntax. Maybe it's empty?"
-		_log "WARN: Setting FLAG to 5"
-		FLAG="5"; }
-[[ "$UPHOURS" =~ ^(([0-1]?[0-9]|[2][0-3])\.{2}([0-1]?[0-9]|[2][0-3]))$ ]] || { 
-		_log "WARN: Invalid parameter list format: UPHOURS [hour1..hour2]"
-		_log "WARN: You set it to '$UPHOURS', which is not a correct syntax. Maybe it's empty?"
-		_log "WARN: Setting UPHOURS to 6..20"
-		UPHOURS="6..20"; }
-
-[[ "$SERVERIP" =~ ^(25[0-4]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])$ ]] || { 
-		_log "WARN: Invalid parameter format: SERVERIP [iii]"
-		_log "WARN: It is set to '$SERVERIP', which is not a correct syntax. Maybe parsing 'ifconfig' did something wrong"
-		_log "WARN: Uncomment the CLASS- and SERVERIP-Line in autoshutdown.conf and change it to yur needs to bypass this error"
-		_log "WARN: Please report this Bug and the CLI-output of 'ifconfig eth0'"
-		_log "WARN: exiting ..."
-		exit 1; }
-
-if [ -z "$NETSTATWORD" ]; then 
-	_log "INFO: NETSTATWORD not set in the config. The check for connections, like SSH (Port 22) will not work on the CLI until you set NETSTATWORD"
-	_log "INFO: If you run this sript at systemstart with init.d it will work as expected"
-	_log "INFO: Read the README for further Infos"
-else
-	[[ "$NETSTATWORD" =~ ^(A-Z)$ ]] || { 
-		_log "WARN: Invalid parameter list format: NETSTATWORD [A-Z]"
-		_log "WARN: You set it to '$NETSTATWORD', which is not a correct syntax."
-		_log "WARN: Unsetting NETSTATWORD"
-		unset NETSTATWORD; }
-fi
-
-# Had to define REGEX here, because the script doesn't work from systemstart, but from the CLI (WTF?)
-REGEX="^([A-Za-z0-9_\.-]{1,})+(,[A-Za-z0-9_\.-]{1,})*$"
-if  [ "$LOADPROCNAMES" = "" ]; then
-        _log "INFO: LOADPROCNAMES is empty - No processes being checked"
-else
-        [[ "$LOADPROCNAMES" =~ $REGEX ]] || { 
-                _log "WARN: Invalid parameter list format: LOADPROCNAMES [lproc1,lproc2,lproc3,...]"
-                _log "WARN: You set it to '$LOADPROCNAMES', which is not a correct syntax."
-                _log "WARN: exiting ..."
-                exit 1; }
-fi
-
-if  [ "$TEMPPROCNAMES" = "" ]; then
-	_log "INFO: TEMPPROCNAMES is emtpy - No temp-processes being checked"
-else
-	[[ "$TEMPPROCNAMES" =~ $REGEX ]] || { 
-		_log "WARN: Invalid parameter list format: TEMPPROCNAMES [tproc1,tproc2,tproc3,...]"
-		_log "WARN: You set it to '$TEMPPROCNAMES', which is not a correct syntax."
-		_log "WARN: exiting ..."
-		exit 1; }	
-fi
-
-[[ "$NSOCKETNUMBERS" =~ ^[0-9]{1,5}|[[0-9]{1,5}\,]$ ]] || { 
-		_log "WARN: Invalid parameter list format: NSOCKETNUMBERS [nsocket1,nsocket2,nsocket3,...]"
-		_log "WARN: You set it to '$NSOCKETNUMBERS', which is not a correct syntax. Maybe it's empty?"
-		_log "WARN: Setting NSOCKETNUMBERS to 22 (SSH)"
-		NSOCKETNUMBERS="22"; }
-
-[[ "$RANGE" =~ ^([1-9]{1}[0-9]{0,2})?([1-9]{1}[0-9]{0,2}\.{2}[1-9]{1}[0-9]{0,2})?(,[1-9]{1}[0-9]{0,2})*((,[1-9]{1}[0-9]{0,2})\.{2}[1-9]{1}[0-9]{0,2})*$ ]] || { 
-		_log "WARN: Invalid parameter list format: RANGE [v..v+n,w,x+m..x,y,z..z+o]"
-		_log "WARN: You set it to '$RANGE', which is not a correct syntax."
-		_log "WARN: Setting RANGE to 2..254 (SSH)"
-		RANGE="2..254"; }
-
-[[ "$SLEEP" =~ ^[0-9]{1,3}$ ]] || { _log "WARN: Invalid parameter format: SLEEP (sec)"
-		_log "WARN: You set it to '$SLEEP', which is not a correct syntax. Maybe it's empty?"
-		_log "WARN: Setting SLEEP to 180 sec"
-		SLEEP=180; }
-
-#### Testing fping ####
-if ! which fping > /dev/null; then
-	echo "WARN: fping not found! Please install it with 'apt-get install fping'"
-	_log "WARN: fping not found! Please install it with 'apt-get install fping'"
-	exit 1
-fi
-
-# If the pinglist or pinglistactive exists, delete it (at every start of the script)
-if [ -f /tmp/pinglist ]; then
-	rm -f /tmp/pinglist 2> /dev/null
-	[[ $? = 0 ]] && _log "INFO: Pinglist deleted" || _log "WARN: Can not delete Pinglist!"
-fi
 
 ######## FUNCTION DECLARATION ########
 
 ################################################################
 #
-#   name         : _ping_range
-#   parameter      : none
-#   global return   : ACTIVEIPS : list of all active hosts in given IP range, separated by blank
-#   return value   : CNT       : number of active IP hosts within given IP range
+#   name      : _log
+#   parameter   : $LOGMESSAGE : logmessage in format "PRIORITY: MESSAGE"
+#   return      : none
+#
+_log() 
+{
+	[[ "$*" =~ ^([A-Za-z]*):(.*) ]] &&
+		{
+			PRIORITY=${BASH_REMATCH[1]}
+			LOGMESSAGE=${BASH_REMATCH[2]}
+			[[ "$(basename "$0")" =~ ^(.*)\. ]] && LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
+		}
+
+	if $VERBOSE ; then
+		# next line only with implementation where logger does not support option '-s'
+		# echo "$(date '+%b %e %H:%M:%S'):$LOGMESSAGE"
+		[ $SYSLOG ] && $LOGGER -s -t "$(date '+%b %e %H:%M:%S'): $USER" -p $FACILITY.$PRIORITY "$LOGMESSAGE"
+	else
+		[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$LOGMESSAGE"
+	fi   # > if [ "$VERBOSE" = "NO" ]; then
+
+}
+
+################################################################
+#
+#   name 		: _ping_range
+#   parameter  	: none
+	#   return		: CNT   : number of active IP hosts within given IP range
 
 _ping_range()
 {
+	NICNR_PINGRANGE="$1"
 	PINGRANGECNT=0
-	ACTIVEIPS=""
-	#IPING=
 	CREATEPINGLIST="false"
-
+		
 	# Create only one pinglist at script-start and not every function-call
 	# If pinglist exists, don't create it
-	if [ ! -f /tmp/pinglist ]; then
-		CREATEPINGLIST="true"
+	if [ -z $USEOWNPINGLIST ]; then
+		PINGLIST="/tmp/pinglist"
+		if [ ! -f "$PINGLIST" ]; then
+			CREATEPINGLIST="true"
+		fi
 	fi
 
+	if $DEBUG; then 
+		_log "DEBUG: NICNR_PINGRANGE: $NICNR_PINGRANGE"
+		_log "DEBUG: PINGLIST: $PINGLIST"
+		_log "DEBUG: _ping_range(): RANGE: '$RANGE'"
+		_log "DEBUG: _ping_range(): CLASS: '${CLASS[${NICNR_PINGRANGE}]}'"
+	fi
 	# separate the IP end number from the loop counter, to give the user a chance to configure the search "algorithm"
 	# COUNTUP = 1 means starting at the lowest IP address; COUNTUP=0 will start at the upper end of the given range
-	if $DEBUG ; then _log "DEBUG: _ping_range(): RANGE: '$RANGE'" ; fi
-
 	for RG in ${RANGE//,/ } ; do
 
 		if [[ ! "$RG" =~ \.{2} ]]; then
@@ -288,26 +146,25 @@ _ping_range()
 		for (( $FINIT;$FORCHECK;$STEP )); do
 
 			# If the pinglist is not created, create it with all IPs
-			# don't add the ServerIP (OMV-IP) to the pinglist.
-			# TODO: specify pinglist-file in autoshutdown.conf
-			
-			if $CREATEPINGLIST; then echo "$CLASS.$J" | grep -v $CLASS.$SERVERIP >> /tmp/pinglist; fi
+			# don't add the ServerIP (OMV-IP) to the pinglist (grep -v)		
+			if $CREATEPINGLIST; then echo "${CLASS[$NICNR_PINGRANGE]}.$J" | grep -v ${CLASS[$NICNR_PINGRANGE]}.${SERVERIP[$NICNR_PINGRANGE]} >> $PINGLIST; fi
 
 		done   # > for (( J=$iSTART;$FORCHECK;$STEP )); do
 
 	done   # > for RG in ${RANGE//,/ } ; do
 
+	_log "INFO: retrieve list of active IPs for '${NIC[$NICNR_PINGRANGE]}' ..."
+
 	# fping output 2> /dev/null suppresses the " ICMP Host Unreachable from 192.168.178.xy for ICMP Echo sent to 192.168.178.yz"
-	if [ -f /tmp/pinglist ]; then
-		FPINGRESULT="$(fping -a -r1 < /tmp/pinglist 2>/dev/null)"
+	if [ -f $PINGLIST ]; then
+		FPINGRESULT="$(fping -a -r1 < "$PINGLIST" 2>/dev/null)"
 	else
-		_log "INFO: /tmp/pinglist does not exist. Skip fpinging hosts"
+		_log "INFO: PINGLIST: $PINGLIST does not exist. Skip fpinging hosts"
 	fi
 	for ACTIVEPC in $FPINGRESULT; do
 		_log "INFO: Found IP $ACTIVEPC as active host."
 		let PINGRANGECNT++;
 	done
-	ACTIVEIPS="$FPINGRESULT"
 	
 	if [ -z "$FPINGRESULT" ]; then
 		_log "INFO: No active IPs in the specified IP-Range found"
@@ -338,12 +195,22 @@ _shutdown()
 		fi
 	fi
 
-	_log "INFO: Shutdown issued: shutdown -h now"
+	if [ -z "$SHUTDOWNCOMMAND" ]; then
+		SHUTDOWNCOMMAND="shutdown -h now"
+	fi
+
+	# This logs to normal syslog - "autoshutdown [" (the space) is necessary, because then all other logs can be filterd in rsyslog.conf with
+	# :msg, contains, "autoshutdown[" /var/log/autoshutdown.log
+	# & ~
+	logger -s -t "$USER - : autoshutdown [$$]" "INFO: Shutdown issued: '$SHUTDOWNCOMMAND'"
+	
+	# normal log-entry
+	_log "INFO: Shutdown issued: '$SHUTDOWNCOMMAND'"
 	_log "   "
 	_log "   "
 
-	# write everything to disk/stick and shutdown
-	if sync; then sudo shutdown -h now; fi
+	# write everything to disk/stick and shutdown, hibernate, $whatever is configured
+	if sync; then eval "$SHUTDOWNCOMMAND"; fi
 	exit 0
 	}
 
@@ -492,7 +359,6 @@ _check_statusfile()
 	RVALUE=1
 
 	# check for each *.status-File in given Dir. If any *.status-File is found, return 0, otherwise 1
-
 	if $DEBUG ; then 
 		_log "DEBUG: _check_statusfile(): ls $STATUSFILEDIR *.status"
 		_log "DEBUG: _check_statusfile(): _check_statusfile is running now"
@@ -513,7 +379,7 @@ _check_statusfile()
 ################################################################
 #
 #   name         : _check_net_status
-#   parameter      : none
+#   parameter      : Array-# of NIC
 #   global return   : none
 #   return         : 1      : if no active socket has been found
 #               : 0      : if at least one active socket has been found
@@ -522,12 +388,19 @@ _check_net_status()
 {
 	RVALUE=1
 	NUMPROC=0
+	NICNR_NETSTATUS="$1"
+	
+	_log "INFO: Check Connections for '${NIC[${NICNR_NETSTATUS}]}'"
 
 	# check for each given socket number in NSOCKETNUMBERS if it is currently stated active in "netstat"
-
 	for NSOCKET in ${NSOCKETNUMBERS//,/ } ; do
 		LP=0
-		WORD="$CLASS.$SERVERIP:$NSOCKET"
+		WORD="${CLASS[$NICNR_NETSTATUS]}.${SERVERIP[$NICNR_NETSTATUS]}:$NSOCKET"
+
+		if $DEBUG; then 
+			_log "DEBUG: The following test for connections can fail, if 'autoshutdown' is running under the wrong user and NETSTATWORD not set in the config."
+			_log "DEBUG: See 'readme' for further information about that"
+		fi
 
 		# NETSTATWORD is not set in autoshutdown.conf (only needed for CLI-testing the script
 		if [ -z $NETSTATWORD ]; then 
@@ -570,10 +443,11 @@ _check_net_status()
 		if [ $RESULT -gt 0 ]; then _log "INFO: _check_net_status(): Found active connection on port $NSOCKET ($PORTPROTOCOL) from $CONIP"; fi
 
 	done   # > NSOCKET in ${NSOCKETNAMES//,/ } ; do
+		
 
 	if ! $DEBUG ; then { [ $NUMPROC -gt 0 ] && _log "INFO: Found $NUMPROC active sockets in $NSOCKETNUMBERS" ; }; fi
 
-	if $DEBUG ; then _log "DEBUG: _check_net_status(): $NUMPROC socket(s) active."; fi
+	if $DEBUG ; then _log "DEBUG: _check_net_status(): $NUMPROC socket(s) active on ${NIC[$NICNR_NETSTATUS]}."; fi
 
 	# return the number of processes we found
 	return $NUMPROC
@@ -675,8 +549,183 @@ _check_clock()
 
 ################################################################
 #
+#   name:	 _check_config
+#   parameter : none
+#   return: 	none
+#
+
+_check_config() {
+	## Check Parameters from Config and setting default variables:
+	_log "INFO: Checking config"
+
+	if [ ! -z "$AUTOUNRARCHECK" ]; then
+		[[ "$AUTOUNRARCHECK" = "true" || "$AUTOUNRARCHECK" = "false" ]] || { _log "WARN: AUTOUNRARCHECK not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set AUTOUNRARCHECK to false"
+				AUTOUNRARCHECK="false"; }
+	fi
+
+	if [ ! -z "$STATUSFILECHECK" ]; then
+		[[ "$STATUSFILECHECK" = "true" || "$STATUSFILECHECK" = "false" ]] || { _log "WARN: STATUSFILECHECK not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set STATUSFILECHECK to false"
+				STATUSFILECHECK="false"; }
+	fi
+
+	[[ "$CHECKCLOCKACTIVE" = "true" || "$CHECKCLOCKACTIVE" = "false" ]] || { _log "WARN: CHECKCLOCKACTIVE not set properly. It has to be 'true' or 'false'."
+			_log "WARN: Set CHECKCLOCKACTIVE to false"
+			CHECKCLOCKACTIVE="false"; }
+
+
+
+	[[ "$FLAG" =~ ^[0-9]{1,3}$ ]] || { 
+			_log "WARN: Invalid parameter format: Flag"
+			_log "WARN: You set it to '$FLAG', which is not a correct syntax. Maybe it's empty?"
+			_log "WARN: Setting FLAG to 5"
+			FLAG="5"; }
+	[[ "$UPHOURS" =~ ^(([0-1]?[0-9]|[2][0-3])\.{2}([0-1]?[0-9]|[2][0-3]))$ ]] || { 
+			_log "WARN: Invalid parameter list format: UPHOURS [hour1..hour2]"
+			_log "WARN: You set it to '$UPHOURS', which is not a correct syntax. Maybe it's empty?"
+			_log "WARN: Setting UPHOURS to 6..20"
+			UPHOURS="6..20"; }
+
+	if [ -z "$NETSTATWORD" ]; then 
+		if $DEBUG; then
+			_log "INFO: NETSTATWORD not set in the config. The check for connections, like SSH (Port 22) will not work on the CLI until you set NETSTATWORD"
+			_log "INFO: If you run this sript at systemstart with init.d it will work as expected"
+			_log "INFO: Read the README for further Infos"
+		fi
+	else
+		[[ "$NETSTATWORD" =~ ^(A-Z)$ ]] || { 
+			_log "WARN: Invalid parameter list format: NETSTATWORD [A-Z]"
+			_log "WARN: You set it to '$NETSTATWORD', which is not a correct syntax."
+			_log "WARN: Unsetting NETSTATWORD"
+			unset NETSTATWORD; }
+	fi
+
+	# Had to define REGEX here, because the script doesn't work from systemstart, but from the CLI (WTF?)
+	REGEX="^([A-Za-z0-9_\.-]{1,})+(,[A-Za-z0-9_\.-]{1,})*$"
+	if  [ "$LOADPROCNAMES" = "" ]; then
+			_log "INFO: LOADPROCNAMES is empty - No processes being checked"
+	else
+			[[ "$LOADPROCNAMES" =~ $REGEX ]] || { 
+					_log "WARN: Invalid parameter list format: LOADPROCNAMES [lproc1,lproc2,lproc3,...]"
+					_log "WARN: You set it to '$LOADPROCNAMES', which is not a correct syntax."
+					_log "WARN: exiting ..."
+					exit 1; }
+	fi
+
+	if  [ "$TEMPPROCNAMES" = "" ]; then
+		_log "INFO: TEMPPROCNAMES is emtpy - No temp-processes being checked"
+	else
+		[[ "$TEMPPROCNAMES" =~ $REGEX ]] || { 
+			_log "WARN: Invalid parameter list format: TEMPPROCNAMES [tproc1,tproc2,tproc3,...]"
+			_log "WARN: You set it to '$TEMPPROCNAMES', which is not a correct syntax."
+			_log "WARN: exiting ..."
+			exit 1; }	
+	fi
+
+	[[ "$NSOCKETNUMBERS" =~ ^[0-9]{1,5}|[[0-9]{1,5}\,]$ ]] || { 
+			_log "WARN: Invalid parameter list format: NSOCKETNUMBERS [nsocket1,nsocket2,nsocket3,...]"
+			_log "WARN: You set it to '$NSOCKETNUMBERS', which is not a correct syntax. Maybe it's empty?"
+			_log "WARN: Setting NSOCKETNUMBERS to 22 (SSH)"
+			NSOCKETNUMBERS="22"; }
+
+	if [ -z $PINGLIST ]; then
+		[[ "$RANGE" =~ ^([1-9]{1}[0-9]{0,2})?([1-9]{1}[0-9]{0,2}\.{2}[1-9]{1}[0-9]{0,2})?(,[1-9]{1}[0-9]{0,2})*((,[1-9]{1}[0-9]{0,2})\.{2}[1-9]{1}[0-9]{0,2})*$ ]] || { 
+				_log "WARN: Invalid parameter list format: RANGE [v..v+n,w,x+m..x,y,z..z+o]"
+				_log "WARN: You set it to '$RANGE', which is not a correct syntax."
+				_log "WARN: Setting RANGE to 2..254"
+				RANGE="2..254"; }
+	else
+		if [ -f "$PINGLIST" ]; then
+			_log "INFO: PINGLIST is set in the conf, reading IPs from it"
+			USEOWNPINGLIST="true"
+		else
+			_log "WARN: PINGLIST is set in the conf, but the file isn't there"
+			_log "WARN: Setting RANGE to 2..254"
+			RANGE="2..254"
+		fi
+	fi
+
+	[[ "$SLEEP" =~ ^[0-9]{1,3}$ ]] || { _log "WARN: Invalid parameter format: SLEEP (sec)"
+			_log "WARN: You set it to '$SLEEP', which is not a correct syntax. Maybe it's empty?"
+			_log "WARN: Setting SLEEP to 180 sec"
+			SLEEP=180; }
+}
+
+################################################################
+#
+#   name:	 	_check_networkconfig
+#   parameter : none
+#   return: 	none
+#
+_check_networkconfig() {
+	# Read IP-Adress and SERVERIP from 'ifconfig eth0'
+	_log "INFO: Reading NICs ,IPs, ..."
+	NICNR=0
+	FOUNDIP=0
+	for NWADAPTERS in bond0 eth0 eth1; do	
+		let NICNR++
+		NIC[$NICNR]=$NWADAPTERS
+		
+		if ip link show up | grep $NWADAPTERS > /dev/null; then 
+			_log "INFO: NIC '$NWADAPTERS' found: try to get IP"
+			IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')"
+			SERVERIP[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/.*\.//g')"
+			CLASS[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/\(.*\..*\..*\)\..*/\1/g')"
+			_log "INFO: '$NWADAPTERS' has IP: ${IPFROMIFCONFIG[$NICNR]}"
+
+			if $DEBUG; then 
+				_log "DEBUG: IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
+				_log "DEBUG: SERVERIP$NICNR: ${SERVERIP[$NICNR]}"
+				_log "DEBUG: CLASS$NICNR: ${CLASS[$NICNR]}"
+			fi
+
+			# if both variables found, then count 1 up
+			if [ ! -z "${SERVERIP[$NICNR]}" ] && [ ! -z "${CLASS[$NICNR]}" ]; then
+				let FOUNDIP++
+				
+				# bond0 has priority, even if there are eth0 and eth1
+				if [ "$NWADAPTERS" = "bond0" ]; then
+					_log "INFO: NIC '$NWADAPTERS' found, skipping all others. bond0 has priority"
+					break
+				fi
+			fi
+
+			# Check CLASS and SERVERIP if they are correct
+			[[ "${CLASS[$NICNR]}" =~ ^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)$ ]] || { 
+				_log "WARN: Invalid parameter format: Class: nnn.nnn.nnn]"
+				_log "WARN: It is set to '${CLASS[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig ' did something wrong"
+				#_log "WARN: Uncomment the CLASS- and SERVERIP-Line in /etc/autoshutdown.conf and change it to your needs to bypass this error"
+				_log "WARN: Please report this Bug and the CLI-output of 'ifconfig'"
+				_log "WARN: exiting ..."
+				exit 1; }
+
+			[[ "${SERVERIP[$NICNR]}" =~ ^(25[0-4]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])$ ]] || { 
+				_log "WARN: Invalid parameter format: SERVERIP [iii]"
+				_log "WARN: It is set to '${SERVERIP[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig' did something wrong"
+				#_log "WARN: Uncomment the CLASS- and SERVERIP-Line in autoshutdown.conf and change it to yur needs to bypass this error"
+				_log "WARN: Please report this Bug and the CLI-output of 'ifconfig'"
+				_log "WARN: exiting ..."
+				exit 1; }
+		
+		else
+			_log "INFO: NIC '$NWADAPTERS' not found, skipping '$NWADAPTERS'"
+			unset NIC[$NICNR]
+		fi
+	done
+
+	if [ $FOUNDIP = 0 ]; then
+		_log "WARN: No SERVERIP or CLASS found"
+# 		_log "WARN: Please check the config!"
+ 		_log "WARN: exiting ..."
+ 		exit 1
+	fi
+}
+
+################################################################
+#
 #   name         : _check_system_active
-#   parameter      : ACTIVEIPS : list of all active IPs found
+#   parameter      : none
 #   global return   : none
 #   return         : 0      : if no active host has been found
 #               : 1      : if at least one active host has been found
@@ -685,7 +734,6 @@ _check_system_active()
 {
 	# Set CNT to 1, because if $CHECKCLOCKACTIVE is successfull or not active, $CNT will be 0
 	CNT=1
-	LACTIVEIPS=$1
 
 	# PRIO 0: Do a check, if the actual time is wihin the range of defined STAYUP-phase for this system
 	# e.g. 06:00 - 20:00, stay up, otherwise shutdown
@@ -708,34 +756,40 @@ _check_system_active()
 		if $DEBUG; then _log "DEBUG: _check_clock is inactive. Setting CNT=0"; fi
 	fi # > if $CHECKCLOCKACTIVE ; then
 
+	# call array "1 until $NICNR" (value is set after scriptstart)
+	for NICNR_CHECKSYSTEMACTIVE in $(seq 1 $NICNR); do
 
-	if [ $CNT -eq 0 ]; then
-		## PRIO 1: Ping each IP address in parameter list. if we find one -> CNT != 0 we'll
-		# stop as there's really no point continuing to looking for more.
-		_ping_range
-		PINGRANGERETURN="$?"
-		if [ "$PINGRANGERETURN" -gt 0 ]; then
-			{	_log "DEBUG: _ping_range -> RETURN: $PINGRANGERETURN"
-				let CNT++
-			}
-		fi
-	fi
+		# if NIC is set (not empty) then check IPs connections, else skip it
+		if [ ! -z "${NIC[$NICNR_CHECKSYSTEMACTIVE]}" ]; then
+			if $DEBUG; then _log "DEBUG: _check_system_active() is running - NICNR_CHECKSYSTEMACTIVE: $NICNR_CHECKSYSTEMACTIVE"; fi
 
-	#if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_active_iplist -> CNT: $CNT "; fi
-	if $DEBUG ; then _log "DEBUG: _check_system_active(): call _ping_range -> CNT: $CNT "; fi
+			if [ $CNT -eq 0 ]; then
+				## PRIO 1: Ping each IP address in parameter list. if we find one -> CNT != 0 we'll
+				# stop as there's really no point continuing to looking for more.
+				_ping_range $NICNR_CHECKSYSTEMACTIVE
+				PINGRANGERETURN="$?"
+				if [ "$PINGRANGERETURN" -gt 0 ]; then
+					let CNT++
+					if $DEBUG; then _log "DEBUG: _ping_range() -> RETURN: $PINGRANGERETURN"; fi
+				fi
+			fi
 
+			if $DEBUG ; then _log "DEBUG: _check_system_active(): call _ping_range -> CNT: $CNT "; fi
 
-	if [ $CNT -eq 0 ]; then
-	# PRIO 2: Do a check for some active network sockets, maybe, one never knows...
-	# If there is at least one active, we leave this function with a 'bogus find'
-		_check_net_status
-		if [ $? -gt 0 ]; then
-			let CNT++
-		fi
+			if [ $CNT -eq 0 ]; then
+			# PRIO 2: Do a check for some active network sockets, maybe, one never knows...
+			# If there is at least one active, we leave this function with a 'bogus find'
+				_check_net_status $NICNR_CHECKSYSTEMACTIVE
+				if [ $? -gt 0 ]; then
+					let CNT++
+				fi
 
-		if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_net_status -> CNT: $CNT "; fi
+				if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_net_status -> CNT: $CNT "; fi
 
-	fi   # > if[ $CNT -eq 0 ]; then
+			fi   # > if[ $CNT -eq 0 ]; then
+
+		fi # >  if [ ! -z "${NIC[$NICNR_CHECKSYSTEMACTIVE]}" ]; then
+	done  # > NICNR_CHECKSYSTEMACTIVE in $(seq 1 $NICNR); do
 
 	if [ $CNT -eq 0 ]; then
 		# PRIO 3: Do a check for some active processes, maybe, one never knows...
@@ -787,6 +841,44 @@ _check_system_active()
 ######## START OF BODY FUNCTION SCRIPT AUTOSHUTDOWN.SH ########
 ###############################################################
 
+logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'"
+logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
+logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' Initialize logging to $FACILITY'"
+
+# logger -s -t "$(date '+%b %e %H:%M:%S'): $USER: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'"
+# logger -s -t "$(date '+%b %e %H:%M:%S'): $USER: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
+# logger -s -t "$(date '+%b %e %H:%M:%S'): $USER: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' Initialize logging to $FACILITY'"
+
+if [ -f /etc/autoshutdown.conf ]; then
+	. /etc/autoshutdown.conf
+	_log "INFO: /etc/shutdown.conf loaded"
+else
+	_log "WARN: cfg-File not found! Please check Path /etc for autoshutdown.conf"
+	exit 1
+fi
+
+if [ "$VERBOSE" = "true" ]; then 
+	DEBUG="true"
+else
+	DEBUG="false"
+fi
+
+_check_config
+_check_networkconfig
+
+#### Testing fping ####
+if ! which fping > /dev/null; then
+	echo "WARN: fping not found! Please install it with 'apt-get install fping'"
+	_log "WARN: fping not found! Please install it with 'apt-get install fping'"
+	exit 1
+fi
+
+# If the pinglist or pinglistactive exists, delete it (at every start of the script)
+if [ -f /tmp/pinglist ]; then
+	rm -f /tmp/pinglist 2> /dev/null
+	[[ $? = 0 ]] && _log "INFO: Pinglist deleted" || _log "WARN: Can't delete Pinglist!"
+fi
+
 # Init the counter
 FCNT=$FLAG
 
@@ -794,8 +886,9 @@ FCNT=$FLAG
 if $DEBUG ; then
 	_log "INFO:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 	_log "DEBUG: ### DEBUG:"
-	_log "DEBUG: CLASS: $CLASS"
-	_log "DEBUG: SERVERIP: $SERVERIP"
+	#_log "DEBUG: CLASS: $CLASS"
+ 	#_log "DEBUG: SERVERIP: $SERVERIP"
+	_log "DEBUG: CLASS and SERVERIP: see above"
 	_log "DEBUG: FLAG: $FLAG"
 	_log "DEBUG: SLEEP: $SLEEP"
 	_log "DEBUG: CHECKCLOCKACTIVE: $CHECKCLOCKACTIVE"
@@ -815,32 +908,27 @@ fi   # > if $DEBUG ;then
 _log "INFO:---------------- script started ----------------------"
 _log "INFO: ${FLAG} test cycles until shutdown is issued."
 _log "INFO: network range is given within \"$RANGE\"."
-_log "INFO: retrieve list of active IPs ..."
 
-# retrieve all currently active IPs in your network # at first Start of the script
-# if there has none active found try again after $SLEEP seconds in next execution cycle
-_ping_range
-RESULT=$?
-
-if $DEBUG ; then
-	for IP in $ACTIVEIPS ; do
-		_log "DEBUG: > IP ${IP} currently active."
-	done
-fi   # > if $DEBUG ; then
+for NICNR_START in $(seq 1 $NICNR); do
+	
+	# if NIC is set (not empty) then check IPs connections, else skip it
+	if [ ! -z "${NIC[$NICNR_START]}" ]; then
+		_log "INFO: script is doing checks for NIC: ${NIC[$NICNR_START]} - ${CLASS[$NICNR_START]}.${SERVERIP[$NICNR_START]}"
+	fi
+done
 
 while : ; do
 	_log "INFO:------------------------------------------------------"
-	_log "INFO: new supervision cycle started."
+	_log "INFO: new supervision cycle started - check active hosts or processes"
 
 	# Main loop, just keep pinging and checking for processes, to decide whether we can shutdown or not...
-	_log "INFO: check number of active hosts in configured network range..."
-
-	if _check_system_active $ACTIVEIPS ; then
+	#_log "INFO: check number of active hosts in configured network range..."
+	if _check_system_active; then
 
 			# Nothing found so sub one from the count and check if we can shutdown yet.
 			let FCNT--
 
-			_log "INFO: No active processes or hosts within network range, ${FCNT} cycles until shutdown..."
+			_log "INFO: No active hosts or processes within network range, ${FCNT} cycles until shutdown..."
 
 			if [ $FCNT -eq 0 ]; then
 				_shutdown;
