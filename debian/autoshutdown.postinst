@@ -29,6 +29,11 @@ case "$1" in
 			update-rc.d autoshutdown disable &>/dev/null
 		fi
 
+		if [ ! -f /etc/autoshutdown.conf ];
+		then
+			cp /etc/autoshutdown.default /etc/autoshutdown.conf
+		fi
+
 		########################################################################
 		# Update file permissions.
 		########################################################################

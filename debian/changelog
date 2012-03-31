@@ -1,3 +1,9 @@
+autoshutdown (0.3.1) stable; urgency=low
+
+  * Github Fix #1 - Config should be written to autoshutdown.conf @ install
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Sat, 31 Mar 2012 11:04:58 +0200
+
 autoshutdown (0.3) stable; urgency=low
 
   * Update to 1.08.1
