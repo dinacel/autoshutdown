@@ -4,7 +4,7 @@
 #
 #          FILE:	autoshutdown.sh
 #
-#         USAGE:	copy this script and libs.sh to /usr/local/bin and teh config-file to /etc
+#         USAGE:	copy this script to /usr/local/bin and the config-file to /etc
 #
 #   DESCRIPTION:	shuts down a PC/Server - variable options
 #
@@ -14,33 +14,7 @@
 #					based on autoshutdown.sh v0.7.008 by chrikai, see: https://sourceforge.net/apps/phpbb/freenas/viewtopic.php?f=12&t=2158&start=60
 #=======================================================================
 
-# 2010/Dec/27		0.1.00 	: Ubuntu-Port:
-#							: and separating cfg in /etc/autoshutdown.conf
-# 2011/Jan/04		0.1.01	: separating _log in libs.sh
-# 2011/Jan/15		0.1.02	: bugfix for "top: failed to get tty" - use -b switch in top
-#				 			: other bugfixes
-# 2012/Mar/12		0.1.03	: imprve: added clockcheck function to force going to sleep on given hour (lucafa) 
-#                     		: bugfix: removed issue with command line -> -a -b -c -d -h -v -V is now accepted as well as -abcdhvV      
-#							: thx Chirikai! See above Link to FreeNAS-Forum
-#							: OMV-Port
-#							: improved ping-function with fping. Should be faster now
-# 2012/Mar/16		0.1.04	: some Code-cleanup
-# 2012/Mar/17		0.1.05	: remove Background-Scan, because fping is so fast, we don't need it
-#							: remove bootup-phase
-#							: Code cleanup
-# 2012/Mar/20		0.1.06	: added config-Check and default variables
-#							: removed Command-Line options and help -> we have a config
-#							: removed libs.sh - who wants to use it > /usr/local/bin/libs.sh
-# 2012/Mar/21		0.1.07	: fixed the REGEX-Error at systemstart - it works from CLI, but not @ systemstart :o
-#							: autoread IP from ifconfig (only eth0 at the moment)
-#							: minor changes 
-# 							: more config-checks
-# 2012/Mar/25		0.1.08.1: expert-setting: SHUTDOWNCOMMAND (see autoshutdown.conf)
-#							: expert-setting: PINGLIST (see autoshutdown.conf)
-#							: Log-Entry in /var/log/syslog when shutdown is initiated
-#							: autodetect NICs and check all of them
-#							: code-cleanup
-
+# Changelog:	see extra file!
 
 ######## VARIABLE DEFINITION ########
 RESULT=0               # declare reusable RESULT variable to check function return values
@@ -53,7 +27,6 @@ LOGGER="/usr/bin/logger"  	 # path and name of logger (default="/usr/bin/logger"
 FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 
 							# for a separate Log:
-
 							# Put the file "autoshutdownlog.conf" in /etc/rsyslog.d/
 
 							# OLD: add the line (default="local6")
@@ -61,7 +34,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.1.08"         # script version information
+VERSION="0.1.10"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -82,13 +55,9 @@ _log()
 			[[ "$(basename "$0")" =~ ^(.*)\. ]] && LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
 		}
 
-	if $VERBOSE ; then
-		# next line only with implementation where logger does not support option '-s'
-		# echo "$(date '+%b %e %H:%M:%S'):$LOGMESSAGE"
-		[ $SYSLOG ] && $LOGGER -s -t "$(date '+%b %e %H:%M:%S'): $USER" -p $FACILITY.$PRIORITY "$LOGMESSAGE"
-	else
-		[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$LOGMESSAGE"
-	fi   # > if [ "$VERBOSE" = "NO" ]; then
+	if $VERBOSE; then echo "$(date '+%b %e %H:%M:%S'): $USER: $FACILITY $LOGMESSAGE"; fi
+	
+	[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$LOGMESSAGE"
 
 }
 
@@ -225,16 +194,47 @@ _ident_num_proc()
 {
 	# retrieve all function parameters for the top command; as we know the last command line parameter
 	# is the pattern for the grep command, we can stop one parameter before the end
-	[[ "$*" =~ (.*)\ (.*)$ ]] &&
+	[[ "$*" =~ (.*)\ (.*)\ (.*)$ ]] &&
 		{
 			TPPARAM=${BASH_REMATCH[1]}
-			GRPPATTERN=${BASH_REMATCH[2]};
+			GRPPATTERN=${BASH_REMATCH[2]}
+			CHECKPROCESS=${BASH_REMATCH[3]};
 		}
-	if $DEBUG ; then _log "DEBUG: _ident_num_proc(): top cmd line: $TPPARAM, grep cmd line: $GRPPATTERN"; fi
+	if $DEBUG ; then _log "DEBUG: _ident_num_proc(): top cmd line: $TPPARAM, grep cmd line: $GRPPATTERN, CHECKPROCESS: $CHECKPROCESS"; fi
 
-	# call top once, pipe the result to grep and count the number of patterns found
-	# the number of found processes is returned to the callee
-	NUMOFPROCESSES=$(top ${TPPARAM} | grep -c ${GRPPATTERN})
+	NUMOFPROCESSES=0
+	NUMOFPROCESSES_PS=0
+	NUMOFPROCESSES_TOP=0
+
+	case $CHECKPROCESS in
+		loadproc)
+				if $DEBUG ; then _log "DEBUG: _ident_num_proc() loadproc: commandline: 'top ${TPPARAM} | grep -c ${GRPPATTERN}'"; fi
+				# call top once, pipe the result to grep and count the number of patterns found
+				# the number of found processes is returned to the callee
+				NUMOFPROCESSES_TOP=$(top ${TPPARAM} | grep -c ${GRPPATTERN})
+				;;
+
+		tempproc)
+				if $DEBUG ; then _log "DEBUG: _ident_num_proc() tempproc: commandline: 'top ${TPPARAM} | grep -c ${GRPPATTERN}'"; fi
+				NUMOFPROCESSES_TOP=$(top ${TPPARAM} | grep -c ${GRPPATTERN})
+				
+				# If there is no process with top, maybe we find some with "ps"
+				if [ "$NUMOFPROCESSES_TOP" = 0 ]; then
+					if $DEBUG ; then _log "DEBUG: _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c ${GRPPATTERN}'"; fi
+					NUMOFPROCESSES_PS=$(ps -ef | grep -v grep | grep -c $GRPPATTERN)
+				fi
+				;;
+
+		*)
+				_log "WARN: _ident_num_proc() This should not happen. Exit 42"
+				;;
+	esac
+
+	let NUMOFPROCESSES=$NUMOFPROCESSES_PS+$NUMOFPROCESSES_TOP
+	if $DEBUG; then
+		_log "DEBUG: NUMOFPROCESSES_PS: $NUMOFPROCESSES_PS"
+		_log "DEBUG: NUMOFPROCESSES_TOP: $NUMOFPROCESSES_TOP"
+	fi
 
 	return $NUMOFPROCESSES
 }
@@ -256,12 +256,12 @@ _check_processes()
 	# check for each given command name in LOADPROCNAMES if it is currently stated active in "top"
 	# i found, that for smbd, proftpd, nsfd, ... there are processes always present in "ps" or "top" output
 	# this could be due to the "daemon" mechanism... Only chance to identify there is something happening with these
-	# processes, is to check if "top" states them active -> "-I" parameter on the command line
+	# processes, is to check if "top" states them active -> "-i" parameter on the command line
 	for LPROCESS in ${LOADPROCNAMES//,/ } ; do
 		LP=0
 		IPROC=0
 		for ((N=0;N < ${LPREPEAT};N++ )) ; do
-			_ident_num_proc ${STOPPARAM} ${LPROCESS}
+			_ident_num_proc ${STOPPARAM} ${LPROCESS} loadproc
 			RESULT=$?
 			LP=$(($LP|$RESULT))
 			[ $RESULT -gt 0 ] && let IPROC++
@@ -285,7 +285,7 @@ _check_processes()
 		TP=0
 		IPROC=0
 		for ((N=0;N < ${TPREPEAT};N++ )) ; do
-			_ident_num_proc ${CTOPPARAM} ${TPROCESS}
+			_ident_num_proc ${CTOPPARAM} ${TPROCESS} tempproc
 			RESULT=$?
 			TP=$(($TP|$RESULT))
 			[ $RESULT -gt 0 ] && let IPROC++
@@ -426,17 +426,21 @@ _check_net_status()
 
 		[[ $(echo ${LINES} | awk '{print $5}') =~ (.*):[0-9]*$ ]] && CONIP=${BASH_REMATCH[1]}
 
-		# Set PORTPROTOCOLL
-		### TODO: Read BITTORRENT and BITTORRENT_WEBIF-Port from Config
+		# Set PORTPROTOCOL - only default ports are defined here
 		case $NSOCKET in
-			80|8080)   PORTPROTOCOL="HTTP" ;;
-			22)      PORTPROTOCOL="SSH" ;;
-			21)      PORTPROTOCOL="FTP" ;;
-			139|445)   PORTPROTOCOL="SMB/CIFS" ;;
-			3689)      PORTPROTOCOL="DAAP" ;;
-			6991)      PORTPROTOCOL="BITTORRENT" ;;
-			9091)      PORTPROTOCOL="BITTORRENT_WEBIF" ;;
-			49152)      PORTPROTOCOL="UPNP" ;;
+			80|8080) PORTPROTOCOL="HTTP" ;;
+			22)    	PORTPROTOCOL="SSH" ;;
+			21)  	PORTPROTOCOL="FTP" ;;
+			139|445) PORTPROTOCOL="SMB/CIFS" ;;
+			443)	PORTPROTOCOL="HTTPS" ;;
+			548)	PORTPROTOCOL="AFP" ;;
+			873)	PORTPROTOCOL="RSYNC" ;;
+			3306)	PORTPROTOCOL="MYSQL" ;;
+			3689)   PORTPROTOCOL="DAAP" ;;
+			6991)   PORTPROTOCOL="BITTORRENT" ;;
+			9091)   PORTPROTOCOL="BITTORRENT_WEBIF" ;;
+			49152)  PORTPROTOCOL="UPNP" ;;
+			51413)	PORTPROTOCOL="BITTORRENT" ;;
 			*)      PORTPROTOCOL="unknown" ;;
 		esac
 
@@ -596,15 +600,19 @@ _check_config() {
 	else
 		[[ "$NETSTATWORD" =~ ^(A-Z)$ ]] || { 
 			_log "WARN: Invalid parameter list format: NETSTATWORD [A-Z]"
-			_log "WARN: You set it to '$NETSTATWORD', which is not a correct syntax."
+			_log "WARN: You set it to '$NETSTATWORD', which is not a correct syntax, only UPPERCASE is allowed!"
 			_log "WARN: Unsetting NETSTATWORD"
 			unset NETSTATWORD; }
 	fi
 
 	# Had to define REGEX here, because the script doesn't work from systemstart, but from the CLI (WTF?)
 	REGEX="^([A-Za-z0-9_\.-]{1,})+(,[A-Za-z0-9_\.-]{1,})*$"
-	if  [ "$LOADPROCNAMES" = "" ]; then
-			_log "INFO: LOADPROCNAMES is empty - No processes being checked"
+	if  [ "$LOADPROCNAMES" = "-" ]; then
+			_log "INFO: LOADPROCNAMES is disabled - No processes being checked"
+			LOADPROCNAMES=""
+	elif [ "$LOADPROCNAMES" = "" ]; then
+			_log "INFO: LOADPROCNAMES is set to: 'smbd,nfsd,transmission-daemon,mt-daapd,forked-daapd' (default)"
+			LOADPROCNAMES="smbd,nfsd,transmission-daemon,mt-daapd,forked-daapd"
 	else
 			[[ "$LOADPROCNAMES" =~ $REGEX ]] || { 
 					_log "WARN: Invalid parameter list format: LOADPROCNAMES [lproc1,lproc2,lproc3,...]"
@@ -613,8 +621,13 @@ _check_config() {
 					exit 1; }
 	fi
 
-	if  [ "$TEMPPROCNAMES" = "" ]; then
-		_log "INFO: TEMPPROCNAMES is emtpy - No temp-processes being checked"
+	if  [ "$TEMPPROCNAMES" = "-" ]; then
+			_log "INFO: TEMPPROCNAMES is disabled - No processes being checked"
+			TEMPPROCNAMES=""
+	elif  [ "$TEMPPROCNAMES" = "" ]; then
+		_log "INFO: TEMPPROCNAMES is set to: in.'tftpd' (default)"
+		_log "INFO: If you want more processes monitored, please have a look at the expert-settings"
+			TEMPPROCNAMES="in.tftpd"
 	else
 		[[ "$TEMPPROCNAMES" =~ $REGEX ]] || { 
 			_log "WARN: Invalid parameter list format: TEMPPROCNAMES [tproc1,tproc2,tproc3,...]"
@@ -623,10 +636,10 @@ _check_config() {
 			exit 1; }	
 	fi
 
-	[[ "$NSOCKETNUMBERS" =~ ^[0-9]{1,5}|[[0-9]{1,5}\,]$ ]] || { 
+	[[ "$NSOCKETNUMBERS" =~ ^([0-9]{2,5})+(,[0-9]{2,5})*$ ]] || { 
 			_log "WARN: Invalid parameter list format: NSOCKETNUMBERS [nsocket1,nsocket2,nsocket3,...]"
 			_log "WARN: You set it to '$NSOCKETNUMBERS', which is not a correct syntax. Maybe it's empty?"
-			_log "WARN: Setting NSOCKETNUMBERS to 22 (SSH)"
+			_log "WARN: Setting NSOCKETNUMBERS to 21,22 (FTP and SSH)"
 			NSOCKETNUMBERS="22"; }
 
 	if [ -z $PINGLIST ]; then
@@ -637,7 +650,7 @@ _check_config() {
 				RANGE="2..254"; }
 	else
 		if [ -f "$PINGLIST" ]; then
-			_log "INFO: PINGLIST is set in the conf, reading IPs from it"
+			_log "INFO: PINGLIST is set in the conf, reading IPs from '$PINGLIST'"
 			USEOWNPINGLIST="true"
 		else
 			_log "WARN: PINGLIST is set in the conf, but the file isn't there"

@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Basic install script for autoshutdown on Debian/Ubuntu/OMV-Systems
+# Solo0815 - R. Lindlein - walterheisenberg (at) gmx (dot) com
+
 f_checksuccess(){
 	if [ "$?" = 0 ]; then 
 		echo "$1 successfull!"
@@ -15,11 +18,18 @@ f_checksuccess(){
 echo "autoshutdown-install-script"
 echo
 
-cp autoshutdown.conf /etc/ 
-f_checksuccess "autoshutdown.conf"
+#cp autoshutdown.conf /etc/ 
+#f_checksuccess "autoshutdown.conf"
 
 cp autoshutdown.default /etc/ 
 f_checksuccess "autoshutdown.default"
+
+if [ ! -f /etc/autoshutdown.conf ]; then
+	cp autoshutdown.default /etc/autoshutdown.conf
+	f_checksuccess "creating autoshutdown.conf"
+else
+	echo "autoshutdown.conf found - don't create one"
+fi
 
 cp autoshutdownlog.conf /etc/rsyslog.d/ 
 f_checksuccess "autoshutdownlog.conf"
