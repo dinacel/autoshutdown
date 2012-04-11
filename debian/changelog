@@ -1,3 +1,10 @@
+autoshutdown (0.3.1.1) stable; urgency=low
+
+  * Github Fix #2 - Scriptversion anpassen
+  * Github Fix #3 - Fakemodus
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Wed, 11 Apr 2012 19:15:51 +0200
+
 autoshutdown (0.3.1) stable; urgency=low
 
   * Github Fix #1 - Config should be written to autoshutdown.conf @ install
