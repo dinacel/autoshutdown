@@ -34,7 +34,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.1.1"         # script version information
+VERSION="0.3.2"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 

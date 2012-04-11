@@ -1,4 +1,4 @@
-autoshutdown (0.3.1.1) stable; urgency=low
+autoshutdown (0.3.2) stable; urgency=low
 
   * Github Fix #2 - Scriptversion anpassen
   * Github Fix #3 - Fakemodus
