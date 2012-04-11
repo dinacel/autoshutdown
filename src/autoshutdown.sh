@@ -20,8 +20,8 @@
 RESULT=0               # declare reusable RESULT variable to check function return values
 
 # Variables that normal users should normaly not define - PowerUsers can do it here or add it to the config
-LPREPEAT=10         	# number of test cycles for finding and active L-Process (default=10)
-TPREPEAT=5            	# number of test cycles for finding and active T-Process (default=5)
+LPREPEAT=5         	# number of test cycles for finding and active LOADPROCNAMES-Process (default=5)
+TPREPEAT=5         	# number of test cycles for finding and active TEMPPROCNAMES-Process (default=5)
 
 LOGGER="/usr/bin/logger"  	 # path and name of logger (default="/usr/bin/logger")
 FACILITY="local6"         	# facility to log to -> see rsyslog.conf
@@ -34,7 +34,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.1.10"         # script version information
+VERSION="0.3.1.1"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -55,10 +55,37 @@ _log()
 			[[ "$(basename "$0")" =~ ^(.*)\. ]] && LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
 		}
 
-	if $VERBOSE; then echo "$(date '+%b %e %H:%M:%S'): $USER: $FACILITY $LOGMESSAGE"; fi
+	ACTUALDATETIME="$(date '+%b %e %H:%M:%S').$(date +%N | cut -b1-3)"
+	if $VERBOSE; then echo "$ACTUALDATETIME: $USER: $FACILITY $LOGMESSAGE"; fi
 	
 	[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$LOGMESSAGE"
+	
 
+	# Option 1:
+	# Apr 11 08:49:08 hoppetz logger: 08.692 autoshutdown[10354]: DEBUG: ' _check_net_status(): Is socket present: 1'
+	# Apr 11 08:49:08 hoppetz logger: 08.717 autoshutdown[10354]: INFO: ' _check_net_status(): Found active connection on port 51413 (BITTORRENT) from 205.162.164.155'
+	# Apr 11 08:49:08 hoppetz logger: 08.737 autoshutdown[10354]: DEBUG: ' The following test for connections can fail, if 'autoshutdown' is running under the wrong user and NETSTATWORD not set in the config.'
+	# Apr 11 08:49:08 hoppetz logger: 08.757 autoshutdown[10354]: DEBUG: ' See 'readme' for further information about that'
+	# Apr 11 08:49:08 hoppetz logger: 08.776 autoshutdown[10354]: DEBUG: ' _check_net_status(): netstat -n | grep ESTABLISHED | grep 192.168.178.21:445'
+	# Apr 11 08:49:08 hoppetz logger: 08.811 autoshutdown[10354]: DEBUG: ' _check_net_status(): Result: '
+
+	#[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$(date +%S).$(date +%N | cut -b1-3) $LOGMESSAGE"
+
+
+
+	# Option 2:
+	# Apr 11 09:04:49 hoppetz ralf: Apr 11 09:04:49.990) autoshutdown[13681]: DEBUG: ' NUMOFPROCESSES_TOP: 0'
+	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.005) autoshutdown[13681]: DEBUG: ' _ident_num_proc(): top cmd line: -d 1 -n 1, grep cmd line: in.tftpd, CHECKPROCESS: tempproc'
+	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.020) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc: commandline: 'top -d 1 -n 1 | grep -c in.tftpd''
+	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.579) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c in.tftpd''
+	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.640) autoshutdown[13681]: DEBUG: ' NUMOFPROCESSES_PS: 0'
+	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.654) autoshutdown[13681]: DEBUG: ' NUMOFPROCESSES_TOP: 0'
+	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.669) autoshutdown[13681]: DEBUG: ' _ident_num_proc(): top cmd line: -d 1 -n 1, grep cmd line: in.tftpd, CHECKPROCESS: tempproc'
+	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.684) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc: commandline: 'top -d 1 -n 1 | grep -c in.tftpd''
+	# Apr 11 09:04:51 hoppetz ralf: Apr 11 09:04:51.243) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c in.tftpd''
+
+	#[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$ACTUALDATETIME $LOGMESSAGE"
+	
 }
 
 ################################################################
@@ -167,20 +194,30 @@ _shutdown()
 	if [ -z "$SHUTDOWNCOMMAND" ]; then
 		SHUTDOWNCOMMAND="shutdown -h now"
 	fi
-
+	
+	# When FAKE-Mode is on:
+	[[ "$FAKE" ]] && {
+		logger -s -t "$USER - : autoshutdown [$$]" "INFO: Fake-Shutdown issued: '$SHUTDOWNCOMMAND' - Command is not executed because of Fake-Mode"
+		# normal log-entry
+		_log "INFO: Fake-Shutdown issued: '$SHUTDOWNCOMMAND'"
+		_log "INFO: The autoshutdown-script will end here."
+		_log "INFO:   "
+		exit 0
+		}
+	
+	# Without Fake-Mode:
 	# This logs to normal syslog - "autoshutdown [" (the space) is necessary, because then all other logs can be filterd in rsyslog.conf with
 	# :msg, contains, "autoshutdown[" /var/log/autoshutdown.log
 	# & ~
 	logger -s -t "$USER - : autoshutdown [$$]" "INFO: Shutdown issued: '$SHUTDOWNCOMMAND'"
-	
 	# normal log-entry
 	_log "INFO: Shutdown issued: '$SHUTDOWNCOMMAND'"
-	_log "   "
-	_log "   "
+	_log "INFO:   "
+	_log "INFO:   "
 
 	# write everything to disk/stick and shutdown, hibernate, $whatever is configured
 	if sync; then eval "$SHUTDOWNCOMMAND"; fi
-	exit 0
+	exit 0		
 	}
 
 ################################################################
@@ -578,7 +615,9 @@ _check_config() {
 			_log "WARN: Set CHECKCLOCKACTIVE to false"
 			CHECKCLOCKACTIVE="false"; }
 
-
+	[[ "$FAKE" = "true" || "$FAKE" = "false" || "$FAKE" = "" ]] || { _log "WARN: FAKE not set properly. It has to be 'true', 'false' or empty."
+			_log "WARN: Set FAKE to true -> Testmode with VERBOSE on"
+			FAKE="true"; VERBOSE="true"; DEBUG="TRUE"; }
 
 	[[ "$FLAG" =~ ^[0-9]{1,3}$ ]] || { 
 			_log "WARN: Invalid parameter format: Flag"
@@ -858,9 +897,9 @@ logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info
 logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
 logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' Initialize logging to $FACILITY'"
 
-# logger -s -t "$(date '+%b %e %H:%M:%S'): $USER: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'"
-# logger -s -t "$(date '+%b %e %H:%M:%S'): $USER: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
-# logger -s -t "$(date '+%b %e %H:%M:%S'): $USER: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' Initialize logging to $FACILITY'"
+# logger -s -t "logger: $(date +%S).$(date +%N | cut -b1-3) $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'"
+# logger -s -t "logger: $(date +%S).$(date +%N | cut -b1-3) $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
+# logger -s -t "logger: $(date +%S).$(date +%N | cut -b1-3) $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' Initialize logging to $FACILITY'"
 
 if [ -f /etc/autoshutdown.conf ]; then
 	. /etc/autoshutdown.conf
@@ -916,6 +955,7 @@ if $DEBUG ; then
 	_log "DEBUG: STATUSFILECHECK: $STATUSFILECHECK"
 	_log "DEBUG: STATUSFILEDIR: $STATUSFILEDIR"
 	_log "DEBUG: VERBOSE: $VERBOSE"
+	_log "DEBUG: FAKE: $FAKE <<<"
 fi   # > if $DEBUG ;then
 
 _log "INFO:---------------- script started ----------------------"

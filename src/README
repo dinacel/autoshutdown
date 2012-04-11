@@ -61,12 +61,16 @@ SHUTDOWNCOMMAND
 If you don't want to shutdown your PC, but go in hibernate/suspend: Define the command here
 If nothing is defined, it shuts down with "shutdown -h now"
 
-#SHUTDOWNCOMMAND="pm-hibernate"  # puts the PC in hibernate-mode
-# pm-suspend  # puts the PC in suspend-mode 
-# shutdown -h +5  # shuts the PC down 5 min after shutdown-command
+# SHUTDOWNCOMMAND="pm-hibernate" => puts the PC in hibernate-mode
+# SHUTDOWNCOMMAND="pm-suspend"  => puts the PC in suspend-mode 
+# SHUTDOWNCOMMAND="shutdown -h +5"  => shuts the PC down 5 min after shutdown-command
 For more information and how to set up hibernate and suspend, look here:
 http://wiki.debian.org/Suspend
 http://wiki.debian.org/Hibernation
+
+FAKE
+set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
+This is also possible through a switch in OMV-GUI. Setting it to "false" or if it is not set, the script will run normally.
 
 PINGLIST
 With this, you can define a path to a file, which contains list of IPs that should be scanned
