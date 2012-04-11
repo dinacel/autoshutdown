@@ -47,3 +47,6 @@ Changelog:
 2012/Apr/10		0.1.10	: Setup LOADPROCNAMES and TEMPPROCNAMES by default
 						: Expert-Options: LOADPROCNAMES and TEMPPROCNAMES
 						: added more Portnumbers
+
+2012/Apr/11		0.3.1.1	: align script version-number to OMV-Plugin-Number
+						: FAKE-Mode
