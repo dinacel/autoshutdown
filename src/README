@@ -1,11 +1,17 @@
 Autoshutdown-Script for OMV, Debian and Ubuntu:
 -----------------------------------------------
+Bugs and feature-requests:
+https://sourceforge.net/apps/phpbb/openmediavault/viewtopic.php?f=5&t=571&start=0
+English is not my native language, i hope you understand it anyway. 
 
-Automatic install:
+Automatic install in OMV:
+------------------
+install the autoshutdown-plugin from stable repository: http://packages.omv-plugins.org/
+
+
+Automatic install in Debian/Ubuntu:
 ------------------
 run "./install.sh" on the CLI
-
-
 
 Manual Install:
 ---------------
@@ -19,16 +25,26 @@ then setup the config-file and do a
 
 The script should run now. To start it @ boot, see http://www.debian-administration.org/articles/28
 
-A new function is a status-filecheck:
-
-
-English is not my native language, i hope you understand it anyway. 
-
-Bugs and feature-requests:
-https://sourceforge.net/apps/phpbb/openmediavault/viewtopic.php?f=5&t=571&start=0
-
 #########################################################################
 Expert Settings in autoshutdown.conf:
+
+LOADPROCNAMES
+command names of processes with load dependent children to check if they have something to do
+checked by default="proftpd,smbd,nfsd,transmission-daemon,mt-daapd,forked-daapd")
+					 
+TEMPPROCNAMES
+command names of processes only started when active
+checked with "top" AND "ps", so all processes are found, even such, which doesn't show up in top
+like "lftp" - Beware: If the process shows up in "ps" when there is no connection, your PC won't shutdown!
+maybe you have to call the process like this: "lftp -do -something -here && exit"
+checked by default="in.tftpd")
+
+if you want other processes than the default ones, please uncomment the above lines and add your process at the end of the line
+to disable the process-check, set LOADPROCNAMES="-" or TEMPPROCNAMES="-"
+
+The following scheme is mandatory for both LOADPROCNAMES and TEMPPROCNAMES:
+process1,process2
+all processes separated by comma ','
 
 NETSTATWORD
 It is needed, if someone wants to test autoshutdown.sh on the CLI, because on the CLI the netstat-output is language-specific. At systemstart netstat-output is always english
@@ -41,10 +57,29 @@ for german Debian/Ubuntu = "VERBUNDEN", other languages: 'netstat -n' on the CLI
 
 now take the word under "State" -> "VERBUNDEN" and set it for NETSTATWORD
 
-SERVERIP and CLASS
-only needed, if reading IP and CLASS from 'ifconfig eth0' fails or other NW-adapter is used
+SHUTDOWNCOMMAND
+If you don't want to shutdown your PC, but go in hibernate/suspend: Define the command here
+If nothing is defined, it shuts down with "shutdown -h now"
 
-AUTOUNRARCHECK      
+# SHUTDOWNCOMMAND="pm-hibernate" => puts the PC in hibernate-mode
+# SHUTDOWNCOMMAND="pm-suspend"  => puts the PC in suspend-mode 
+# SHUTDOWNCOMMAND="shutdown -h +5"  => shuts the PC down 5 min after shutdown-command
+For more information and how to set up hibernate and suspend, look here:
+http://wiki.debian.org/Suspend
+http://wiki.debian.org/Hibernation
+
+FAKE
+set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
+This is also possible through a switch in OMV-GUI. Setting it to "false" or if it is not set, the script will run normally.
+
+PINGLIST
+With this, you can define a path to a file, which contains list of IPs that should be scanned
+only one IP per line is allowed - Format: mmm.nnn.ooo.ppp
+e.g.:
+192.168.1.45
+If this expert-setting is used, the IPs specified in "RANGE" or in GUI doesn't work
+
+AUTOUNRARCHECK
 Only activate this feature, when using autounrar script
 set it to "true" for a check, to "false" (or uncemmented) to skip the check
 If an extraction-process of autounrar is running, the NAS is not shut down
@@ -80,3 +115,11 @@ to delete all *.status files, which are not deleted before (loss of power for ex
 
 STATUSFILEDIR
 location of the *.status-file created e.g. of a backup-script
+
+
+
+
+
+### obsolete - not working anymore
+SERVERIP and CLASS
+only needed, if reading IP and CLASS from 'ifconfig eth0' fails or other NW-adapter is used

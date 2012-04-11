@@ -44,16 +44,6 @@ NSOCKETNUMBERS="22,139,445,10000,49152"
 					# 49152 = UPnP
 
 ##################################################
-#### Process Supervision Configuration
-LOADPROCNAMES="smbd,nfsd,transmission-daemon,mt-daapd"
-                     # command names of processes with load dependent children
-                     # (default="proftpd,smbd,nfsd,transmission-daemon,mt-daapd")
-
-TEMPPROCNAMES="in.tftpd"
-                     # command names of processes only started when active
-                     # (default="in.tftpd")
-
-##################################################
 #### Syslog Configuration ####
 SYSLOG="true"			# activate write to syslog (default="true")
 
@@ -68,6 +58,23 @@ VERBOSE="false"			# use the verbose mode, with additional output on the command 
 # You should know, what you are doing here
 
 # ----------------------------------------------------------------------------------------
+#### Process Supervision Configuration
+#LOADPROCNAMES="smbd,nfsd,transmission-daemon,mt-daapd,forked-daapd,your_processes_here"
+                     # command names of processes with load dependent children
+                     # checked by default="proftpd,smbd,nfsd,transmission-daemon,mt-daapd,forked-daapd")
+					 
+#TEMPPROCNAMES="in.tftpd"
+                     # command names of processes only started when active
+					 # checked with "top" AND "ps", so all processes are found, even such, which doesn't show up in top
+					 # like "lftp"
+                     # checked by default="in.tftpd")
+
+# if you want others, please uncomment the above lines and add your process at the end of the line
+# The following scheme is mandatory for both LOADPROCNAMES and TEMPPROCNAMES:
+# process1,process2
+# all processes separated by comma ','
+
+# ----------------------------------------------------------------------------------------
 
 # If you don't want to shutdown your PC, but go in hibernate/suspend: Define the command here
 # If nothing defined, it shuts down with "shutdown -h now"
@@ -78,9 +85,16 @@ VERBOSE="false"			# use the verbose mode, with additional output on the command 
 
 # ----------------------------------------------------------------------------------------
 
+#FAKE="true"
+# set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
+# This mode includes VERBOSE-output automatically.
+# Switching to FAKE-Mode is also possible through a switch in OMV-GUI. Setting it to "false" or if it is not set, the script will run normally.
+
+# ----------------------------------------------------------------------------------------
+
 # Here you can define a path to a file, which contains list of IPs that should be scanned
 # only one IP per line allowed - Format mmm.nnn.ooo.ppp
-# If this is uncemmented, the IPs specified in "RANGE" or in GUI doesn't work
+# If this is uncommented, the IPs specified in "RANGE" or in GUI doesn't work
 #PINGLIST="PATH/TO/PINGLIST"
 
 # ----------------------------------------------------------------------------------------

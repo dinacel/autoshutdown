@@ -1,0 +1,52 @@
+Autoshutdown-Script - Debian/Ubuntu/OMV
+---------------------------------------
+
+Author:			Solo0815 - R. Lindlein (Ubuntu-Port, OMV-Changes), it should work on any Debain-based System, too
+				based on autoshutdown.sh v0.7.008 by chrikai, see: https://sourceforge.net/apps/phpbb/freenas/viewtopic.php?f=12&t=2158&start=60
+
+Changelog:
+----------
+2010/Dec/27		0.1.00 	: Ubuntu-Port:
+						: and separating cfg in /etc/autoshutdown.conf
+
+2011/Jan/04		0.1.01	: separating _log in libs.sh
+
+2011/Jan/15		0.1.02	: bugfix for "top: failed to get tty" - use -b switch in top
+				 		: other bugfixes
+
+2012/Mar/12		0.1.03	: imprve: added clockcheck function to force going to sleep on given hour (lucafa) 
+                    	: bugfix: removed issue with command line -> -a -b -c -d -h -v -V is now accepted as well as -abcdhvV      
+						: thx Chirikai! See above Link to FreeNAS-Forum
+						: OMV-Port
+						: improved ping-function with fping. Should be faster now
+
+2012/Mar/16		0.1.04	: some Code-cleanup
+
+2012/Mar/17		0.1.05	: remove Background-Scan, because fping is so fast, we don't need it
+						: remove bootup-phase
+						: Code cleanup
+
+2012/Mar/20		0.1.06	: added config-Check and default variables
+						: removed Command-Line options and help -> we have a config
+						: removed libs.sh - who wants to use it > /usr/local/bin/libs.sh
+
+2012/Mar/21		0.1.07	: fixed the REGEX-Error at systemstart - it works from CLI, but not @ systemstart :o
+						: autoread IP from ifconfig (only eth0 at the moment)
+						: minor changes 
+						: more config-checks
+
+2012/Mar/25		0.1.08.1: expert-setting: SHUTDOWNCOMMAND (see autoshutdown.conf)
+						: expert-setting: PINGLIST (see autoshutdown.conf)
+						: Log-Entry in /var/log/syslog when shutdown is initiated
+						: autodetect NICs and check all of them
+						: code-cleanup
+
+2012/Apr/02		0.1.09	: added check_processes with "ps" - useful for running processes, which doesn't show up in "top"
+						: DEBUG/VERBOSE-Logs now show up in OMV: Diagnostics > System Logs
+
+2012/Apr/10		0.1.10	: Setup LOADPROCNAMES and TEMPPROCNAMES by default
+						: Expert-Options: LOADPROCNAMES and TEMPPROCNAMES
+						: added more Portnumbers
+
+2012/Apr/11		0.3.1.1	: align script version-number to OMV-Plugin-Number
+						: FAKE-Mode
