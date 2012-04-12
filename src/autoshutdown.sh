@@ -34,7 +34,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.1.1"         # script version information
+VERSION="0.3.2.1"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -52,40 +52,19 @@ _log()
 		{
 			PRIORITY=${BASH_REMATCH[1]}
 			LOGMESSAGE=${BASH_REMATCH[2]}
-			[[ "$(basename "$0")" =~ ^(.*)\. ]] && LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
+			[[ "$(basename "$0")" =~ ^(.*)\. ]] &&
+			if $FAKE; then
+				LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: 'FAKE-Mode: $LOGMESSAGE'";
+			else
+				LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
+			fi; 
 		}
 
-	ACTUALDATETIME="$(date '+%b %e %H:%M:%S').$(date +%N | cut -b1-3)"
-	if $VERBOSE; then echo "$ACTUALDATETIME: $USER: $FACILITY $LOGMESSAGE"; fi
-	
+	#echo "$LOGMESSAGE"
+
+	if $VERBOSE||$FAKE; then echo "$(date '+%b %e %H:%M:%S'): $USER: $FACILITY $LOGMESSAGE"; fi
+
 	[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$LOGMESSAGE"
-	
-
-	# Option 1:
-	# Apr 11 08:49:08 hoppetz logger: 08.692 autoshutdown[10354]: DEBUG: ' _check_net_status(): Is socket present: 1'
-	# Apr 11 08:49:08 hoppetz logger: 08.717 autoshutdown[10354]: INFO: ' _check_net_status(): Found active connection on port 51413 (BITTORRENT) from 205.162.164.155'
-	# Apr 11 08:49:08 hoppetz logger: 08.737 autoshutdown[10354]: DEBUG: ' The following test for connections can fail, if 'autoshutdown' is running under the wrong user and NETSTATWORD not set in the config.'
-	# Apr 11 08:49:08 hoppetz logger: 08.757 autoshutdown[10354]: DEBUG: ' See 'readme' for further information about that'
-	# Apr 11 08:49:08 hoppetz logger: 08.776 autoshutdown[10354]: DEBUG: ' _check_net_status(): netstat -n | grep ESTABLISHED | grep 192.168.178.21:445'
-	# Apr 11 08:49:08 hoppetz logger: 08.811 autoshutdown[10354]: DEBUG: ' _check_net_status(): Result: '
-
-	#[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$(date +%S).$(date +%N | cut -b1-3) $LOGMESSAGE"
-
-
-
-	# Option 2:
-	# Apr 11 09:04:49 hoppetz ralf: Apr 11 09:04:49.990) autoshutdown[13681]: DEBUG: ' NUMOFPROCESSES_TOP: 0'
-	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.005) autoshutdown[13681]: DEBUG: ' _ident_num_proc(): top cmd line: -d 1 -n 1, grep cmd line: in.tftpd, CHECKPROCESS: tempproc'
-	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.020) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc: commandline: 'top -d 1 -n 1 | grep -c in.tftpd''
-	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.579) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c in.tftpd''
-	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.640) autoshutdown[13681]: DEBUG: ' NUMOFPROCESSES_PS: 0'
-	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.654) autoshutdown[13681]: DEBUG: ' NUMOFPROCESSES_TOP: 0'
-	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.669) autoshutdown[13681]: DEBUG: ' _ident_num_proc(): top cmd line: -d 1 -n 1, grep cmd line: in.tftpd, CHECKPROCESS: tempproc'
-	# Apr 11 09:04:50 hoppetz ralf: Apr 11 09:04:50.684) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc: commandline: 'top -d 1 -n 1 | grep -c in.tftpd''
-	# Apr 11 09:04:51 hoppetz ralf: Apr 11 09:04:51.243) autoshutdown[13681]: DEBUG: ' _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c in.tftpd''
-
-	#[ $SYSLOG ] && $LOGGER -p $FACILITY.$PRIORITY "$ACTUALDATETIME $LOGMESSAGE"
-	
 }
 
 ################################################################
@@ -110,8 +89,8 @@ _ping_range()
 	fi
 
 	if $DEBUG; then 
-		_log "DEBUG: NICNR_PINGRANGE: $NICNR_PINGRANGE"
-		_log "DEBUG: PINGLIST: $PINGLIST"
+		_log "DEBUG: _ping_range(): NICNR_PINGRANGE: $NICNR_PINGRANGE"
+		_log "DEBUG: _ping_range(): PINGLIST: $PINGLIST"
 		_log "DEBUG: _ping_range(): RANGE: '$RANGE'"
 		_log "DEBUG: _ping_range(): CLASS: '${CLASS[${NICNR_PINGRANGE}]}'"
 	fi
@@ -269,8 +248,8 @@ _ident_num_proc()
 
 	let NUMOFPROCESSES=$NUMOFPROCESSES_PS+$NUMOFPROCESSES_TOP
 	if $DEBUG; then
-		_log "DEBUG: NUMOFPROCESSES_PS: $NUMOFPROCESSES_PS"
-		_log "DEBUG: NUMOFPROCESSES_TOP: $NUMOFPROCESSES_TOP"
+		_log "DEBUG: _ident_num_proc(): NUMOFPROCESSES_PS: $NUMOFPROCESSES_PS"
+		_log "DEBUG: _ident_num_proc(): NUMOFPROCESSES_TOP: $NUMOFPROCESSES_TOP"
 	fi
 
 	return $NUMOFPROCESSES
@@ -569,11 +548,11 @@ _check_clock()
 	fi
 
 	if $DEBUG; then
-		_log "DEBUG: TIMETOSLEEP: $TIMETOSLEEP"
-		_log "DEBUG: SECONDSTOSLEEP: $SECONDSTOSLEEP"
-		_log "DEBUG: MINUTESTOSLEEP: $MINUTESTOSLEEP"
-		_log "DEBUG: Final: SECONDSTOSLEEP: $SECONDSTOSLEEP"
-		_log "DEBUG: TIMEHOUR: $TIMEHOUR - TIMEMINUTES: $TIMEMINUTES"
+		_log "DEBUG: _check_clock(): TIMETOSLEEP: $TIMETOSLEEP"
+		_log "DEBUG: _check_clock(): SECONDSTOSLEEP: $SECONDSTOSLEEP"
+		_log "DEBUG: _check_clock(): MINUTESTOSLEEP: $MINUTESTOSLEEP"
+		_log "DEBUG: _check_clock(): Final: SECONDSTOSLEEP: $SECONDSTOSLEEP"
+		_log "DEBUG: _check_clock(): TIMEHOUR: $TIMEHOUR - TIMEMINUTES: $TIMEMINUTES"
 	fi
 
 	if $CLOCKOK; then
@@ -597,7 +576,17 @@ _check_clock()
 
 _check_config() {
 	## Check Parameters from Config and setting default variables:
+	_log "INFO: ------------------------------------------------------"
 	_log "INFO: Checking config"
+
+	if $FAKE; then
+		VERBOSE="true"; DEBUG="true"
+		_log "INFO: Fake-Mode in on"
+	else
+		[[ "$FAKE" = "true" || "$FAKE" = "false" || "$FAKE" = "" ]] || { _log "WARN: FAKE not set properly. It has to be 'true', 'false' or empty."
+ 			_log "WARN: Set FAKE to true -> Testmode with VERBOSE on"
+ 			FAKE="true"; VERBOSE="true"; DEBUG="TRUE"; }
+	fi
 
 	if [ ! -z "$AUTOUNRARCHECK" ]; then
 		[[ "$AUTOUNRARCHECK" = "true" || "$AUTOUNRARCHECK" = "false" ]] || { _log "WARN: AUTOUNRARCHECK not set properly. It has to be 'true' or 'false'."
@@ -615,15 +604,13 @@ _check_config() {
 			_log "WARN: Set CHECKCLOCKACTIVE to false"
 			CHECKCLOCKACTIVE="false"; }
 
-	[[ "$FAKE" = "true" || "$FAKE" = "false" || "$FAKE" = "" ]] || { _log "WARN: FAKE not set properly. It has to be 'true', 'false' or empty."
-			_log "WARN: Set FAKE to true -> Testmode with VERBOSE on"
-			FAKE="true"; VERBOSE="true"; DEBUG="TRUE"; }
-
-	[[ "$FLAG" =~ ^[0-9]{1,3}$ ]] || { 
+	# Flag: 1 - 999
+	[[ "$FLAG" =~ ^([1-9]|[1-9][0-9]|[1-9][0-9]{2})$ ]] || { 
 			_log "WARN: Invalid parameter format: Flag"
-			_log "WARN: You set it to '$FLAG', which is not a correct syntax. Maybe it's empty?"
+			_log "WARN: You set it to '$FLAG', which is not a correct syntax. Only '1' - '999' is allowed."
 			_log "WARN: Setting FLAG to 5"
 			FLAG="5"; }
+
 	[[ "$UPHOURS" =~ ^(([0-1]?[0-9]|[2][0-3])\.{2}([0-1]?[0-9]|[2][0-3]))$ ]] || { 
 			_log "WARN: Invalid parameter list format: UPHOURS [hour1..hour2]"
 			_log "WARN: You set it to '$UPHOURS', which is not a correct syntax. Maybe it's empty?"
@@ -675,9 +662,10 @@ _check_config() {
 			exit 1; }	
 	fi
 
+	# Port-Numbers with at least 2 digits
 	[[ "$NSOCKETNUMBERS" =~ ^([0-9]{2,5})+(,[0-9]{2,5})*$ ]] || { 
 			_log "WARN: Invalid parameter list format: NSOCKETNUMBERS [nsocket1,nsocket2,nsocket3,...]"
-			_log "WARN: You set it to '$NSOCKETNUMBERS', which is not a correct syntax. Maybe it's empty?"
+			_log "WARN: You set it to '$NSOCKETNUMBERS', which is not a correct syntax. Maybe it's empty? Only  Port-Numbers with at least 2 digits are allowed."
 			_log "WARN: Setting NSOCKETNUMBERS to 21,22 (FTP and SSH)"
 			NSOCKETNUMBERS="22"; }
 
@@ -698,8 +686,10 @@ _check_config() {
 		fi
 	fi
 
-	[[ "$SLEEP" =~ ^[0-9]{1,3}$ ]] || { _log "WARN: Invalid parameter format: SLEEP (sec)"
-			_log "WARN: You set it to '$SLEEP', which is not a correct syntax. Maybe it's empty?"
+	# Sleep: 1 - 9999
+	[[ "$SLEEP" =~ ^([1-9]|[1-9][0-9]{1,3})$ ]] || { 
+			_log "WARN: Invalid parameter format: SLEEP (sec)"
+			_log "WARN: You set it to '$SLEEP', which is not a correct syntax.  Only '1' - '9999' is allowed. Maybe it's empty?"
 			_log "WARN: Setting SLEEP to 180 sec"
 			SLEEP=180; }
 }
@@ -712,6 +702,7 @@ _check_config() {
 #
 _check_networkconfig() {
 	# Read IP-Adress and SERVERIP from 'ifconfig eth0'
+	_log "INFO: ------------------------------------------------------"
 	_log "INFO: Reading NICs ,IPs, ..."
 	NICNR=0
 	FOUNDIP=0
@@ -727,9 +718,9 @@ _check_networkconfig() {
 			_log "INFO: '$NWADAPTERS' has IP: ${IPFROMIFCONFIG[$NICNR]}"
 
 			if $DEBUG; then 
-				_log "DEBUG: IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
-				_log "DEBUG: SERVERIP$NICNR: ${SERVERIP[$NICNR]}"
-				_log "DEBUG: CLASS$NICNR: ${CLASS[$NICNR]}"
+				_log "DEBUG: _check_networkconfig(): IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
+				_log "DEBUG: _check_networkconfig(): SERVERIP$NICNR: ${SERVERIP[$NICNR]}"
+				_log "DEBUG: _check_networkconfig(): CLASS$NICNR: ${CLASS[$NICNR]}"
 			fi
 
 			# if both variables found, then count 1 up
@@ -897,10 +888,6 @@ logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info
 logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
 logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' Initialize logging to $FACILITY'"
 
-# logger -s -t "logger: $(date +%S).$(date +%N | cut -b1-3) $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'"
-# logger -s -t "logger: $(date +%S).$(date +%N | cut -b1-3) $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' X Version: $VERSION'"
-# logger -s -t "logger: $(date +%S).$(date +%N | cut -b1-3) $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info "INFO: ' Initialize logging to $FACILITY'"
-
 if [ -f /etc/autoshutdown.conf ]; then
 	. /etc/autoshutdown.conf
 	_log "INFO: /etc/shutdown.conf loaded"
@@ -938,14 +925,11 @@ FCNT=$FLAG
 if $DEBUG ; then
 	_log "INFO:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 	_log "DEBUG: ### DEBUG:"
-	#_log "DEBUG: CLASS: $CLASS"
- 	#_log "DEBUG: SERVERIP: $SERVERIP"
 	_log "DEBUG: CLASS and SERVERIP: see above"
 	_log "DEBUG: FLAG: $FLAG"
 	_log "DEBUG: SLEEP: $SLEEP"
 	_log "DEBUG: CHECKCLOCKACTIVE: $CHECKCLOCKACTIVE"
 	_log "DEBUG: UPHOURS: $UPHOURS"
-	_log "DEBUG: RANGE: $RANGE"
 	_log "DEBUG: LOADPROCNAMES: $LOADPROCNAMES"
 	_log "DEBUG: NSOCKETNUMBERS: $NSOCKETNUMBERS"
 	_log "DEBUG: TEMPPROCNAMES: $TEMPPROCNAMES"
@@ -955,12 +939,18 @@ if $DEBUG ; then
 	_log "DEBUG: STATUSFILECHECK: $STATUSFILECHECK"
 	_log "DEBUG: STATUSFILEDIR: $STATUSFILEDIR"
 	_log "DEBUG: VERBOSE: $VERBOSE"
-	_log "DEBUG: FAKE: $FAKE <<<"
+	_log "DEBUG: FAKE: $FAKE"
 fi   # > if $DEBUG ;then
 
 _log "INFO:---------------- script started ----------------------"
 _log "INFO: ${FLAG} test cycles until shutdown is issued."
-_log "INFO: network range is given within \"$RANGE\"."
+
+if $FAKE; then
+	_log "INFO: FAKE-Mode in on, dont't wait for first check"
+else
+	_log "INFO: Waiting 5 min until the first check"
+	sleep 5m	# or: sleep 300
+fi
 
 for NICNR_START in $(seq 1 $NICNR); do
 	

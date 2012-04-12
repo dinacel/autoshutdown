@@ -71,6 +71,7 @@ http://wiki.debian.org/Hibernation
 FAKE
 set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
 This is also possible through a switch in OMV-GUI. Setting it to "false" or if it is not set, the script will run normally.
+With Fake-Mode ON, the script doesn't sleep 5 minutes after it starts.
 
 PINGLIST
 With this, you can define a path to a file, which contains list of IPs that should be scanned

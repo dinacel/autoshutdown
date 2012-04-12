@@ -48,5 +48,10 @@ Changelog:
 						: Expert-Options: LOADPROCNAMES and TEMPPROCNAMES
 						: added more Portnumbers
 
-2012/Apr/11		0.3.1.1	: align script version-number to OMV-Plugin-Number
+2012/Apr/11		0.3.2	: align script version-number to OMV-Plugin-Number
 						: FAKE-Mode
+
+2012/Apr/12		0.3.2.1	: Script is sleeping 5 min after start, this prevents the PC from shutting down right after it
+						: started due to false settings. This is OFF in Fake_mode.
+						: Better Regex for Config-Check
+						: Code Cleanup
