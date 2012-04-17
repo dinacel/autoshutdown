@@ -55,3 +55,5 @@ Changelog:
 						: started due to false settings. This is OFF in Fake_mode.
 						: Better Regex for Config-Check
 						: Code Cleanup
+
+2012/Apr/17		0.3.3 : Sorted files into the correct directories
