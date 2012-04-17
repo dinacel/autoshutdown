@@ -6,8 +6,10 @@
 #### Script Common Configuration
 
 FLAG=6				# Set the number of total failures before shutdown. (default=6)
+					# allowed is 1 - 999
 
 SLEEP=180			# Numbers of seconds between each check/loop. (default=180, 3 min)
+					# allowed is 1 - 9999
 
 RANGE="2..254"   	# define a range of IPs which should be scanned, (default="2..254")
 					# via XXX.XXX.XXX.xxx last triple of IP address in a list
@@ -36,12 +38,15 @@ NSOCKETNUMBERS="22,139,445,10000,49152"
 					# 22 = SSH
 					# 80 = Web
 					# 139 = NetBIOS
+					# 443 = HTTPS
 					# 445 = Samba-Filesharing
-					# 3689 = iTunes
+					# 548 = AFP
+					# 3689 = iTunes, DAAP
 					# 6991 = Bittorrent
 					# 9091 = Transmission-Daemon-WebIF
 					# 10000 = Webmin WebIF
 					# 49152 = UPnP
+					# 51413 = Bittorrent
 
 ##################################################
 #### Syslog Configuration ####
@@ -89,6 +94,7 @@ VERBOSE="false"			# use the verbose mode, with additional output on the command 
 # set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
 # This mode includes VERBOSE-output automatically.
 # Switching to FAKE-Mode is also possible through a switch in OMV-GUI. Setting it to "false" or if it is not set, the script will run normally.
+# With Fake-Mode ON, the script doesn't sleep 5 minutes after it starts.
 
 # ----------------------------------------------------------------------------------------
 

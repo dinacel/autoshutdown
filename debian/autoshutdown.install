@@ -2,3 +2,4 @@ src/autoshutdown.default etc
 src/autoshutdown etc/init.d
 src/autoshutdown.sh usr/local/bin
 src/autoshutdownlog.conf /etc/rsyslog.d
+src/autoshutdownlog.logrotate /etc/logrotate.d
