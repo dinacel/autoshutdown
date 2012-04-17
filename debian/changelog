@@ -1,3 +1,9 @@
+autoshutdown (0.3.2.1) stable; urgency=low
+
+  * Github Fix #6 - Logrotate einbauen
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Tue, 17 Apr 2012 19:42:12 +0200
+
 autoshutdown (0.3.2) stable; urgency=low
 
   * Github Fix #2 - Scriptversion anpassen
