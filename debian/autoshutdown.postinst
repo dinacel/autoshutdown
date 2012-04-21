@@ -34,6 +34,11 @@ case "$1" in
 			cp /etc/autoshutdown.default /etc/autoshutdown.conf
 		fi
 
+		if [ -f /etc/rsyslog.d/autoshutdownlog.conf ];
+		then
+			rm -f /etc/rsyslog.d/autoshutdownlog.conf
+		fi
+
 		########################################################################
 		# Update file permissions.
 		########################################################################

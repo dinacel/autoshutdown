@@ -46,7 +46,7 @@ STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  
 #   parameter   : $LOGMESSAGE : logmessage in format "PRIORITY: MESSAGE"
 #   return      : none
 #
-_log() 
+_log()
 {
 	[[ "$*" =~ ^([A-Za-z]*):(.*) ]] &&
 		{
@@ -57,7 +57,7 @@ _log()
 				LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: 'FAKE-Mode: $LOGMESSAGE'";
 			else
 				LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
-			fi; 
+			fi;
 		}
 
 	#echo "$LOGMESSAGE"
@@ -78,7 +78,7 @@ _ping_range()
 	NICNR_PINGRANGE="$1"
 	PINGRANGECNT=0
 	CREATEPINGLIST="false"
-		
+
 	# Create only one pinglist at script-start and not every function-call
 	# If pinglist exists, don't create it
 	if [ -z $USEOWNPINGLIST ]; then
@@ -88,7 +88,7 @@ _ping_range()
 		fi
 	fi
 
-	if $DEBUG; then 
+	if $DEBUG; then
 		_log "DEBUG: _ping_range(): NICNR_PINGRANGE: $NICNR_PINGRANGE"
 		_log "DEBUG: _ping_range(): PINGLIST: $PINGLIST"
 		_log "DEBUG: _ping_range(): RANGE: '$RANGE'"
@@ -121,7 +121,7 @@ _ping_range()
 		for (( $FINIT;$FORCHECK;$STEP )); do
 
 			# If the pinglist is not created, create it with all IPs
-			# don't add the ServerIP (OMV-IP) to the pinglist (grep -v)		
+			# don't add the ServerIP (OMV-IP) to the pinglist (grep -v)
 			if $CREATEPINGLIST; then echo "${CLASS[$NICNR_PINGRANGE]}.$J" | grep -v ${CLASS[$NICNR_PINGRANGE]}.${SERVERIP[$NICNR_PINGRANGE]} >> $PINGLIST; fi
 
 		done   # > for (( J=$iSTART;$FORCHECK;$STEP )); do
@@ -140,7 +140,7 @@ _ping_range()
 		_log "INFO: Found IP $ACTIVEPC as active host."
 		let PINGRANGECNT++;
 	done
-	
+
 	if [ -z "$FPINGRESULT" ]; then
 		_log "INFO: No active IPs in the specified IP-Range found"
 	fi
@@ -173,7 +173,7 @@ _shutdown()
 	if [ -z "$SHUTDOWNCOMMAND" ]; then
 		SHUTDOWNCOMMAND="shutdown -h now"
 	fi
-	
+
 	# When FAKE-Mode is on:
 	[[ "$FAKE" = "true" ]] && {
 		logger -s -t "$USER - : autoshutdown [$$]" "INFO: Fake-Shutdown issued: '$SHUTDOWNCOMMAND' - Command is not executed because of Fake-Mode"
@@ -183,7 +183,7 @@ _shutdown()
 		_log "INFO:   "
 		exit 0
 		}
-	
+
 	# Without Fake-Mode:
 	# This logs to normal syslog - "autoshutdown [" (the space) is necessary, because then all other logs can be filterd in rsyslog.conf with
 	# :msg, contains, "autoshutdown[" /var/log/autoshutdown.log
@@ -196,7 +196,7 @@ _shutdown()
 
 	# write everything to disk/stick and shutdown, hibernate, $whatever is configured
 	if sync; then eval "$SHUTDOWNCOMMAND"; fi
-	exit 0		
+	exit 0
 	}
 
 ################################################################
@@ -233,7 +233,7 @@ _ident_num_proc()
 		tempproc)
 				if $DEBUG ; then _log "DEBUG: _ident_num_proc() tempproc: commandline: 'top ${TPPARAM} | grep -c ${GRPPATTERN}'"; fi
 				NUMOFPROCESSES_TOP=$(top ${TPPARAM} | grep -c ${GRPPATTERN})
-				
+
 				# If there is no process with top, maybe we find some with "ps", but not in in.tftpd
 				if [ "$NUMOFPROCESSES_TOP" = 0 ]; then
 					if [ "${GRPPATTERN}" != "in.tftpd" ]; then
@@ -288,7 +288,7 @@ _check_processes()
 		done
 		let NUMPROC=$NUMPROC+$LP
 
-		if $DEBUG ; then 
+		if $DEBUG ; then
 			{ [ $LP -gt 0 ] && _log "DEBUG: _check_processes(): Found active process $LPROCESS"; }
 			_log "DEBUG: _check_processes(): > $LPROCESS: found $IPROC of $LPREPEAT cycles active"
 		fi
@@ -347,7 +347,7 @@ _check_autounrar()
 	# this could be due to the "daemon" mechanism... Only chance to identify there is something happening with these
 	# processes, is to check if "top" states them active -> "-I" parameter on the command line
 
-	if $DEBUG ; then 
+	if $DEBUG ; then
 		_log "DEBUG: _check_autounrar(): cat $UNRARLOGDIR/$UNRARLOG = $(cat $UNRARLOGDIR/$UNRARLOG)"
 		_log "DEBUG: _check_autounrar(): AUTOUNRARCHECK is running now"
 	fi
@@ -379,7 +379,7 @@ _check_statusfile()
 	RVALUE=1
 
 	# check for each *.status-File in given Dir. If any *.status-File is found, return 0, otherwise 1
-	if $DEBUG ; then 
+	if $DEBUG ; then
 		_log "DEBUG: _check_statusfile(): ls $STATUSFILEDIR *.status"
 		_log "DEBUG: _check_statusfile(): _check_statusfile is running now"
 	fi
@@ -409,7 +409,7 @@ _check_net_status()
 	RVALUE=1
 	NUMPROC=0
 	NICNR_NETSTATUS="$1"
-	
+
 	_log "INFO: Check Connections for '${NIC[${NICNR_NETSTATUS}]}'"
 
 	# check for each given socket number in NSOCKETNUMBERS if it is currently stated active in "netstat"
@@ -417,13 +417,13 @@ _check_net_status()
 		LP=0
 		WORD="${CLASS[$NICNR_NETSTATUS]}.${SERVERIP[$NICNR_NETSTATUS]}:$NSOCKET"
 
-		if $DEBUG; then 
+		if $DEBUG; then
 			_log "DEBUG: The following test for connections can fail, if 'autoshutdown' is running under the wrong user and NETSTATWORD not set in the config."
 			_log "DEBUG: See 'readme' for further information about that"
 		fi
 
 		# NETSTATWORD is not set in autoshutdown.conf (only needed for CLI-testing the script
-		if [ -z $NETSTATWORD ]; then 
+		if [ -z $NETSTATWORD ]; then
 			if $DEBUG ; then _log "DEBUG: _check_net_status(): netstat -n | grep ESTABLISHED | grep ${WORD}"; fi
 			LINES=$(netstat -n | grep ESTABLISHED | grep ${WORD})
 		else
@@ -467,7 +467,6 @@ _check_net_status()
 		if [ $RESULT -gt 0 ]; then _log "INFO: _check_net_status(): Found active connection on port $NSOCKET ($PORTPROTOCOL) from $CONIP"; fi
 
 	done   # > NSOCKET in ${NSOCKETNAMES//,/ } ; do
-		
 
 	if ! $DEBUG ; then { [ $NUMPROC -gt 0 ] && _log "INFO: Found $NUMPROC active sockets in $NSOCKETNUMBERS" ; }; fi
 
@@ -505,17 +504,17 @@ _check_clock()
 		_log "INFO: Checking the time: stay up or shutdown ..."
 
 		if [[ $CLOCKEND -gt $CLOCKSTART ]]; then
-				
+
 				# aktuelle Zeit liegt zwischendrin
 				if [[ $CLOCKCHECK -ge $CLOCKSTART && $CLOCKCHECK -lt $CLOCKEND ]]; then
 					CLOCKOK=true
 					let TIMETOSLEEP=$CLOCKEND-$CLOCKCHECK-1
 
-					if $DEBUG ; then 
+					if $DEBUG ; then
 						_log "DEBUG: CHECK 1"
 						_log "DEBUG: _check_clock(): CLOCKCHECK: $CLOCKCHECK; CLOCKSTART: $CLOCKSTART ; CLOCKEND: $CLOCKEND -> forced to stay up"
 					fi
-				else 
+				else
 					CLOCKOK=false
 					if $DEBUG ; then
 						_log "DEBUG: CHECK 2"
@@ -526,13 +525,13 @@ _check_clock()
 				if [[ $CLOCKCHECK -ge $CLOCKSTART || $CLOCKCHECK -lt $CLOCKEND ]]; then
 					CLOCKOK=true
 					let TIMETOSLEEP=$CLOCKEND-$CLOCKCHECK-1
-					if $DEBUG ; then 
+					if $DEBUG ; then
 						_log "DEBUG: CHECK 3"
 						_log "DEBUG: _check_clock(): CLOCKCHECK: $CLOCKCHECK; CLOCKSTART: $CLOCKSTART ; CLOCKEND: $CLOCKEND -> forced to stay up"
 					fi
 				else
 					CLOCKOK=false
-					if $DEBUG ; then 
+					if $DEBUG ; then
 						_log "DEBUG: CHECK 4"
 						_log "DEBUG: _check_clock(): CLOCKCHECK: $CLOCKCHECK; CLOCKSTART: $CLOCKSTART ; CLOCKEND: $CLOCKEND -> shutdown-check"
 					fi
@@ -545,9 +544,9 @@ _check_clock()
 		let SECONDSTOSLEEP=$TIMETOSLEEP*3600
 		let MINUTESTOSLEEP=60-$CLOCKMINUTES-5 # Minutes until full Hour minus 5 min
 		let SECONDSTOSLEEP=$SECONDSTOSLEEP+$MINUTESTOSLEEP*60 # Seconds until 5 minutes before shutdown-Range
-		
+
 		# The following two should point to shutdown-range minus 5 minutes
-		let TIMEHOUR=$CLOCKCHECK+$TIMETOSLEEP # actual time plus hours to sleep 
+		let TIMEHOUR=$CLOCKCHECK+$TIMETOSLEEP # actual time plus hours to sleep
 		let TIMEMINUTES=$CLOCKMINUTES+$MINUTESTOSLEEP # actual time (minutes) plus minutes to sleep
 	fi
 
@@ -568,7 +567,6 @@ _check_clock()
 		_log "INFO: System is in Shutdown-Range. Do further checks ..."
 		return 0
 	fi
-   
 }
 
 ################################################################
@@ -588,8 +586,8 @@ _check_config() {
 		_log "INFO: Fake-Mode in on"
 	else
 		[[ "$FAKE" = "true" || "$FAKE" = "false" || "$FAKE" = "" ]] || { _log "WARN: FAKE not set properly. It has to be 'true', 'false' or empty."
- 			_log "WARN: Set FAKE to true -> Testmode with VERBOSE on"
- 			FAKE="true"; VERBOSE="true"; DEBUG="TRUE"; }
+			_log "WARN: Set FAKE to true -> Testmode with VERBOSE on"
+			FAKE="true"; VERBOSE="true"; DEBUG="TRUE"; }
 	fi
 
 	if [ ! -z "$AUTOUNRARCHECK" ]; then
@@ -609,26 +607,26 @@ _check_config() {
 			CHECKCLOCKACTIVE="false"; }
 
 	# Flag: 1 - 999
-	[[ "$FLAG" =~ ^([1-9]|[1-9][0-9]|[1-9][0-9]{2})$ ]] || { 
+	[[ "$FLAG" =~ ^([1-9]|[1-9][0-9]|[1-9][0-9]{2})$ ]] || {
 			_log "WARN: Invalid parameter format: Flag"
 			_log "WARN: You set it to '$FLAG', which is not a correct syntax. Only '1' - '999' is allowed."
 			_log "WARN: Setting FLAG to 5"
 			FLAG="5"; }
 
-	[[ "$UPHOURS" =~ ^(([0-1]?[0-9]|[2][0-3])\.{2}([0-1]?[0-9]|[2][0-3]))$ ]] || { 
+	[[ "$UPHOURS" =~ ^(([0-1]?[0-9]|[2][0-3])\.{2}([0-1]?[0-9]|[2][0-3]))$ ]] || {
 			_log "WARN: Invalid parameter list format: UPHOURS [hour1..hour2]"
 			_log "WARN: You set it to '$UPHOURS', which is not a correct syntax. Maybe it's empty?"
 			_log "WARN: Setting UPHOURS to 6..20"
 			UPHOURS="6..20"; }
 
-	if [ -z "$NETSTATWORD" ]; then 
+	if [ -z "$NETSTATWORD" ]; then
 		if $DEBUG; then
 			_log "INFO: NETSTATWORD not set in the config. The check for connections, like SSH (Port 22) will not work on the CLI until you set NETSTATWORD"
 			_log "INFO: If you run this sript at systemstart with init.d it will work as expected"
 			_log "INFO: Read the README for further Infos"
 		fi
 	else
-		[[ "$NETSTATWORD" =~ ^(A-Z)$ ]] || { 
+		[[ "$NETSTATWORD" =~ ^(A-Z)$ ]] || {
 			_log "WARN: Invalid parameter list format: NETSTATWORD [A-Z]"
 			_log "WARN: You set it to '$NETSTATWORD', which is not a correct syntax, only UPPERCASE is allowed!"
 			_log "WARN: Unsetting NETSTATWORD"
@@ -644,7 +642,7 @@ _check_config() {
 			_log "INFO: LOADPROCNAMES is set to: 'smbd,nfsd,transmission-daemon,mt-daapd,forked-daapd' (default)"
 			LOADPROCNAMES="smbd,nfsd,transmission-daemon,mt-daapd,forked-daapd"
 	else
-			[[ "$LOADPROCNAMES" =~ $REGEX ]] || { 
+			[[ "$LOADPROCNAMES" =~ $REGEX ]] || {
 					_log "WARN: Invalid parameter list format: LOADPROCNAMES [lproc1,lproc2,lproc3,...]"
 					_log "WARN: You set it to '$LOADPROCNAMES', which is not a correct syntax."
 					_log "WARN: exiting ..."
@@ -659,22 +657,22 @@ _check_config() {
 		_log "INFO: If you want more processes monitored, please have a look at the expert-settings"
 			TEMPPROCNAMES="in.tftpd"
 	else
-		[[ "$TEMPPROCNAMES" =~ $REGEX ]] || { 
+		[[ "$TEMPPROCNAMES" =~ $REGEX ]] || {
 			_log "WARN: Invalid parameter list format: TEMPPROCNAMES [tproc1,tproc2,tproc3,...]"
 			_log "WARN: You set it to '$TEMPPROCNAMES', which is not a correct syntax."
 			_log "WARN: exiting ..."
-			exit 1; }	
+			exit 1; }
 	fi
 
 	# Port-Numbers with at least 2 digits
-	[[ "$NSOCKETNUMBERS" =~ ^([0-9]{2,5})+(,[0-9]{2,5})*$ ]] || { 
+	[[ "$NSOCKETNUMBERS" =~ ^([0-9]{2,5})+(,[0-9]{2,5})*$ ]] || {
 			_log "WARN: Invalid parameter list format: NSOCKETNUMBERS [nsocket1,nsocket2,nsocket3,...]"
 			_log "WARN: You set it to '$NSOCKETNUMBERS', which is not a correct syntax. Maybe it's empty? Only  Port-Numbers with at least 2 digits are allowed."
 			_log "WARN: Setting NSOCKETNUMBERS to 21,22 (FTP and SSH)"
 			NSOCKETNUMBERS="22"; }
 
 	if [ -z $PINGLIST ]; then
-		[[ "$RANGE" =~ ^([1-9]{1}[0-9]{0,2})?([1-9]{1}[0-9]{0,2}\.{2}[1-9]{1}[0-9]{0,2})?(,[1-9]{1}[0-9]{0,2})*((,[1-9]{1}[0-9]{0,2})\.{2}[1-9]{1}[0-9]{0,2})*$ ]] || { 
+		[[ "$RANGE" =~ ^([1-9]{1}[0-9]{0,2})?([1-9]{1}[0-9]{0,2}\.{2}[1-9]{1}[0-9]{0,2})?(,[1-9]{1}[0-9]{0,2})*((,[1-9]{1}[0-9]{0,2})\.{2}[1-9]{1}[0-9]{0,2})*$ ]] || {
 				_log "WARN: Invalid parameter list format: RANGE [v..v+n,w,x+m..x,y,z..z+o]"
 				_log "WARN: You set it to '$RANGE', which is not a correct syntax."
 				_log "WARN: Setting RANGE to 2..254"
@@ -691,7 +689,7 @@ _check_config() {
 	fi
 
 	# Sleep: 1 - 9999
-	[[ "$SLEEP" =~ ^([1-9]|[1-9][0-9]{1,3})$ ]] || { 
+	[[ "$SLEEP" =~ ^([1-9]|[1-9][0-9]{1,3})$ ]] || {
 			_log "WARN: Invalid parameter format: SLEEP (sec)"
 			_log "WARN: You set it to '$SLEEP', which is not a correct syntax.  Only '1' - '9999' is allowed. Maybe it's empty?"
 			_log "WARN: Setting SLEEP to 180 sec"
@@ -710,18 +708,18 @@ _check_networkconfig() {
 	_log "INFO: Reading NICs ,IPs, ..."
 	NICNR=0
 	FOUNDIP=0
-	for NWADAPTERS in bond0 eth0 eth1; do	
+	for NWADAPTERS in bond0 eth0 eth1; do
 		let NICNR++
 		NIC[$NICNR]=$NWADAPTERS
-		
-		if ip link show up | grep $NWADAPTERS > /dev/null; then 
+
+		if ip link show up | grep $NWADAPTERS > /dev/null; then
 			_log "INFO: NIC '$NWADAPTERS' found: try to get IP"
 			IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')"
 			SERVERIP[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/.*\.//g')"
 			CLASS[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/\(.*\..*\..*\)\..*/\1/g')"
 			_log "INFO: '$NWADAPTERS' has IP: ${IPFROMIFCONFIG[$NICNR]}"
 
-			if $DEBUG; then 
+			if $DEBUG; then
 				_log "DEBUG: _check_networkconfig(): IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
 				_log "DEBUG: _check_networkconfig(): SERVERIP$NICNR: ${SERVERIP[$NICNR]}"
 				_log "DEBUG: _check_networkconfig(): CLASS$NICNR: ${CLASS[$NICNR]}"
@@ -730,7 +728,7 @@ _check_networkconfig() {
 			# if both variables found, then count 1 up
 			if [ ! -z "${SERVERIP[$NICNR]}" ] && [ ! -z "${CLASS[$NICNR]}" ]; then
 				let FOUNDIP++
-				
+
 				# bond0 has priority, even if there are eth0 and eth1
 				if [ "$NWADAPTERS" = "bond0" ]; then
 					_log "INFO: NIC '$NWADAPTERS' found, skipping all others. bond0 has priority"
@@ -739,7 +737,7 @@ _check_networkconfig() {
 			fi
 
 			# Check CLASS and SERVERIP if they are correct
-			[[ "${CLASS[$NICNR]}" =~ ^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)$ ]] || { 
+			[[ "${CLASS[$NICNR]}" =~ ^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)$ ]] || {
 				_log "WARN: Invalid parameter format: Class: nnn.nnn.nnn]"
 				_log "WARN: It is set to '${CLASS[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig ' did something wrong"
 				#_log "WARN: Uncomment the CLASS- and SERVERIP-Line in /etc/autoshutdown.conf and change it to your needs to bypass this error"
@@ -747,14 +745,14 @@ _check_networkconfig() {
 				_log "WARN: exiting ..."
 				exit 1; }
 
-			[[ "${SERVERIP[$NICNR]}" =~ ^(25[0-4]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])$ ]] || { 
+			[[ "${SERVERIP[$NICNR]}" =~ ^(25[0-4]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])$ ]] || {
 				_log "WARN: Invalid parameter format: SERVERIP [iii]"
 				_log "WARN: It is set to '${SERVERIP[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig' did something wrong"
 				#_log "WARN: Uncomment the CLASS- and SERVERIP-Line in autoshutdown.conf and change it to yur needs to bypass this error"
 				_log "WARN: Please report this Bug and the CLI-output of 'ifconfig'"
 				_log "WARN: exiting ..."
 				exit 1; }
-		
+
 		else
 			_log "INFO: NIC '$NWADAPTERS' not found, skipping '$NWADAPTERS'"
 			unset NIC[$NICNR]
@@ -764,8 +762,8 @@ _check_networkconfig() {
 	if [ $FOUNDIP = 0 ]; then
 		_log "WARN: No SERVERIP or CLASS found"
 # 		_log "WARN: Please check the config!"
- 		_log "WARN: exiting ..."
- 		exit 1
+		_log "WARN: exiting ..."
+		exit 1
 	fi
 }
 
@@ -794,11 +792,11 @@ _check_system_active()
 			{
 				CNT=0
 			}
-					
+
 			if $DEBUG ; then _log "DEBUG: _check_clock(): call _check_clock -> CNT: $CNT; UPHOURS: $UPHOURS "; fi
 
 	else
-		# If $CHECKCLOCKACTIVE is off, then Begin with CNT=0 and ping 
+		# If $CHECKCLOCKACTIVE is off, then Begin with CNT=0 and ping
 		CNT=0
 		if $DEBUG; then _log "DEBUG: _check_clock is inactive. Setting CNT=0"; fi
 	fi # > if $CHECKCLOCKACTIVE ; then
@@ -900,7 +898,7 @@ else
 	exit 1
 fi
 
-if [ "$VERBOSE" = "true" ]; then 
+if [ "$VERBOSE" = "true" ]; then
 	DEBUG="true"
 else
 	DEBUG="false"
@@ -957,7 +955,6 @@ else
 fi
 
 for NICNR_START in $(seq 1 $NICNR); do
-	
 	# if NIC is set (not empty) then check IPs connections, else skip it
 	if [ ! -z "${NIC[$NICNR_START]}" ]; then
 		_log "INFO: script is doing checks for NIC: ${NIC[$NICNR_START]} - ${CLASS[$NICNR_START]}.${SERVERIP[$NICNR_START]}"

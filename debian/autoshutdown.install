@@ -1,4 +1,2 @@
-src/autoshutdown.default etc
-src/autoshutdown etc/init.d
-src/autoshutdown.sh usr/local/bin
-src/autoshutdownlog.conf /etc/rsyslog.d
+src/etc/* etc
+src/usr/local/bin/* usr/local/bin

@@ -1,3 +1,17 @@
+autoshutdown (0.3.3) stable; urgency=low
+
+  * Sorted files into the correct directories
+  * Fix - Installation error
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Tue, 17 Apr 2012 19:51:08 +0200
+
+autoshutdown (0.3.2.1) stable; urgency=low
+
+  * Github Fix #6 - Logrotate einbauen
+  * Github Fix #5 - Wait x Minutes after script starts, for the first check
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Tue, 17 Apr 2012 19:42:12 +0200
+
 autoshutdown (0.3.2) stable; urgency=low
 
   * Github Fix #2 - Scriptversion anpassen
