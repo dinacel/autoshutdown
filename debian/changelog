@@ -1,3 +1,9 @@
+autoshutdown (0.3.3.1) stable; urgency=high
+
+  * Fix: The PC doesn't shutdown, if not in fake-mode
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Sat, 21 Apr 2012 11:04:10 +0200
+
 autoshutdown (0.3.3) stable; urgency=low
 
   * Sorted files into the correct directories
