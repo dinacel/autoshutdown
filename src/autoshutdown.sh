@@ -34,7 +34,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.2.1"         # script version information
+VERSION="0.3.3.1"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -175,7 +175,7 @@ _shutdown()
 	fi
 	
 	# When FAKE-Mode is on:
-	[[ "$FAKE" ]] && {
+	[[ "$FAKE" = "true" ]] && {
 		logger -s -t "$USER - : autoshutdown [$$]" "INFO: Fake-Shutdown issued: '$SHUTDOWNCOMMAND' - Command is not executed because of Fake-Mode"
 		# normal log-entry
 		_log "INFO: Fake-Shutdown issued: '$SHUTDOWNCOMMAND'"
@@ -234,10 +234,14 @@ _ident_num_proc()
 				if $DEBUG ; then _log "DEBUG: _ident_num_proc() tempproc: commandline: 'top ${TPPARAM} | grep -c ${GRPPATTERN}'"; fi
 				NUMOFPROCESSES_TOP=$(top ${TPPARAM} | grep -c ${GRPPATTERN})
 				
-				# If there is no process with top, maybe we find some with "ps"
+				# If there is no process with top, maybe we find some with "ps", but not in in.tftpd
 				if [ "$NUMOFPROCESSES_TOP" = 0 ]; then
-					if $DEBUG ; then _log "DEBUG: _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c ${GRPPATTERN}'"; fi
-					NUMOFPROCESSES_PS=$(ps -ef | grep -v grep | grep -c $GRPPATTERN)
+					if [ "${GRPPATTERN}" != "in.tftpd" ]; then
+						if $DEBUG ; then _log "DEBUG: _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c ${GRPPATTERN}'"; fi
+						NUMOFPROCESSES_PS=$(ps -ef | grep -v grep | grep -c $GRPPATTERN)
+					else
+						_log "INFO: Process = 'in.tftpd' - skipping 'ps'-check"
+					fi
 				fi
 				;;
 
@@ -579,7 +583,7 @@ _check_config() {
 	_log "INFO: ------------------------------------------------------"
 	_log "INFO: Checking config"
 
-	if $FAKE; then
+	if [ "$FAKE" = "true" ]; then
 		VERBOSE="true"; DEBUG="true"
 		_log "INFO: Fake-Mode in on"
 	else
@@ -945,7 +949,7 @@ fi   # > if $DEBUG ;then
 _log "INFO:---------------- script started ----------------------"
 _log "INFO: ${FLAG} test cycles until shutdown is issued."
 
-if $FAKE; then
+if [ "$FAKE" = "true" ]; then
 	_log "INFO: FAKE-Mode in on, dont't wait for first check"
 else
 	_log "INFO: Waiting 5 min until the first check"

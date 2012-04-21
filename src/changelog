@@ -51,7 +51,9 @@ Changelog:
 2012/Apr/11		0.3.2	: align script version-number to OMV-Plugin-Number
 						: FAKE-Mode
 
-2012/Apr/12		0.3.2.1	: Script is sleeping 5 min after start, this prevents the PC from shutting down right after it
+2012/Apr/12		0.3.3	: Script is sleeping 5 min after start, this prevents the PC from shutting down right after it
 						: started due to false settings. This is OFF in Fake_mode.
 						: Better Regex for Config-Check
 						: Code Cleanup
+
+2012/Apr/21		0.3.3.1	: Fix: The PC doesn't shutdown, if not in fake-mode
