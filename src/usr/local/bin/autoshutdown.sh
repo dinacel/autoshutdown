@@ -722,6 +722,16 @@ _check_networkconfig() {
 			_log "INFO: '$NWADAPTERS' has IP: ${IPFROMIFCONFIG[$NICNR]}"
 
 			if $DEBUG; then
+				# ifconfig in extra variables for easier debugging
+				ifconfig_DEBUG="$(ifconfig $NWADAPTERS)"
+				IPFROMIFCONFIG_DEBUG_1="$(ifconfig $NWADAPTERS | grep inet)"
+				IPFROMIFCONFIG_DEBUG_2="$(ifconfig $NWADAPTERS | grep inet | sed 's/[ ]*Bcast.*//g')"
+				# Log-Output all the stuff
+				_log "DEBUG: ifconfig $NWADAPTERS (Begin) ----------"
+				_log "DEBUG: $ifconfig_DEBUG"
+				_log "DEBUG: ifconfig $NWADAPTERS (End) ----------"
+				_log "DEBUG: IPFROMIFCONFIG_DEBUG_1: $IPFROMIFCONFIG_DEBUG_1"
+				_log "DEBUG: IPFROMIFCONFIG_DEBUG_2: $IPFROMIFCONFIG_DEBUG_2"
 				_log "DEBUG: _check_networkconfig(): IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
 				_log "DEBUG: _check_networkconfig(): SERVERIP$NICNR: ${SERVERIP[$NICNR]}"
 				_log "DEBUG: _check_networkconfig(): CLASS$NICNR: ${CLASS[$NICNR]}"
@@ -765,7 +775,6 @@ _check_networkconfig() {
 
 	if [ $FOUNDIP = 0 ]; then
 		_log "WARN: No SERVERIP or CLASS found"
-# 		_log "WARN: Please check the config!"
 		_log "WARN: exiting ..."
 		exit 1
 	fi
