@@ -34,7 +34,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.3.2"         # script version information
+VERSION="0.3.3.3"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -602,6 +602,12 @@ _check_config() {
 				STATUSFILECHECK="false"; }
 	fi
 
+	if [ ! -z "$NW_INTENSESEARCH" ]; then
+		[[ "$NW_INTENSESEARCH" = "true" || "$NW_INTENSESEARCH" = "false" ]] || { _log "WARN: NW_INTENSESEARCH not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set NW_INTENSESEARCH to false"
+				NW_INTENSESEARCH="false"; }
+	fi
+
 	[[ "$CHECKCLOCKACTIVE" = "true" || "$CHECKCLOCKACTIVE" = "false" ]] || { _log "WARN: CHECKCLOCKACTIVE not set properly. It has to be 'true' or 'false'."
 			_log "WARN: Set CHECKCLOCKACTIVE to false"
 			CHECKCLOCKACTIVE="false"; }
@@ -714,9 +720,34 @@ _check_networkconfig() {
 
 		if ip link show up | grep $NWADAPTERS > /dev/null; then
 			_log "INFO: NIC '$NWADAPTERS' found: try to get IP"
+
+			# Testcode for HP Microserver N40L
+			if [ "$NW_INTENSESEARCH" = "true" ]; then
+				NW_WAIT=0
+				if [ "$NWADAPTERS" = "eth0" ]; then
+					_log "INFO: NW_INTENSESEARCH(): eth0 only --------------------------------"
+					while true; do
+						let NW_WAIT++
+						if [ $NW_WAIT -le 5 ]; then
+							if ! ifconfig $NWADAPTERS | egrep -q "inet "; then
+								_log "INFO: NW_INTENSESEARCH(): Run: #${NW_WAIT}: No internet-Adress found - wait 60 sec for initializing the network"
+								sleep 60
+							else
+								_log "INFO: NW_INTENSESEARCH(): Run: #${NW_WAIT}: IP-Adress found"
+								break
+							fi
+						else
+							_log "WARN: No internet-Adress for eth0 found after 5 minutes - The script will not work maybe ..."
+							break
+						fi
+					done
+					_log "INFO: NW_INTENSESEARCH(): ----------------------------------------"
+				fi
+			fi
+
 			# old: IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')"
 			# new:
-			IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep inet | sed 's/[ ]*Bcast.*//g; s/.*://g')"
+			IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | egrep "inet " | sed 's/[ ]*Bcast.*//g; s/.*://g')"
 			SERVERIP[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/.*\.//g')"
 			CLASS[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/\(.*\..*\..*\)\..*/\1/g')"
 			_log "INFO: '$NWADAPTERS' has IP: ${IPFROMIFCONFIG[$NICNR]}"
@@ -724,8 +755,8 @@ _check_networkconfig() {
 			if $DEBUG; then
 				# ifconfig in extra variables for easier debugging
 				ifconfig_DEBUG="$(ifconfig $NWADAPTERS)"
-				IPFROMIFCONFIG_DEBUG_1="$(ifconfig $NWADAPTERS | grep inet)"
-				IPFROMIFCONFIG_DEBUG_2="$(ifconfig $NWADAPTERS | grep inet | sed 's/[ ]*Bcast.*//g')"
+				IPFROMIFCONFIG_DEBUG_1="$(ifconfig $NWADAPTERS | egrep "inet ")"
+				IPFROMIFCONFIG_DEBUG_2="$(ifconfig $NWADAPTERS | egrep "inet " | sed 's/[ ]*Bcast.*//g')"
 				# Log-Output all the stuff
 				_log "DEBUG: ifconfig $NWADAPTERS (Begin) ----------"
 				_log "DEBUG: $ifconfig_DEBUG"
@@ -955,6 +986,7 @@ if $DEBUG ; then
 	_log "DEBUG: STATUSFILEDIR: $STATUSFILEDIR"
 	_log "DEBUG: VERBOSE: $VERBOSE"
 	_log "DEBUG: FAKE: $FAKE"
+	_log "DEBUG: NW_INTENSESEARCH: $NW_INTENSESEARCH"
 fi   # > if $DEBUG ;then
 
 _log "INFO:---------------- script started ----------------------"
