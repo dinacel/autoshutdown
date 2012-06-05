@@ -117,10 +117,6 @@ to delete all *.status files, which are not deleted before (loss of power for ex
 STATUSFILEDIR
 location of the *.status-file created e.g. of a backup-script
 
-
-
-
-
-### obsolete - not working anymore
-SERVERIP and CLASS
-only needed, if reading IP and CLASS from 'ifconfig eth0' fails or other NW-adapter is used
+NW_INTENSESEARCH
+for PCs which need longer to get IP-address. Set this to "true", then autoshutdown.sh waits for the network to get an IP-address.
+After 5 minutes without an IP-address it goes on with the other checks, whether it has found an IP or not

@@ -34,7 +34,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.3.1"         # script version information
+VERSION="0.3.3.3"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -240,7 +240,7 @@ _ident_num_proc()
 						if $DEBUG ; then _log "DEBUG: _ident_num_proc() tempproc-ps: commandline: 'ps -ef | grep -c ${GRPPATTERN}'"; fi
 						NUMOFPROCESSES_PS=$(ps -ef | grep -v grep | grep -c $GRPPATTERN)
 					else
-						_log "INFO: Process = 'in.tftpd' - skipping 'ps'-check"
+						if $DEBUG; then _log "INFO: Process = 'in.tftpd' - skipping 'ps'-check"; fi
 					fi
 				fi
 				;;
@@ -602,6 +602,12 @@ _check_config() {
 				STATUSFILECHECK="false"; }
 	fi
 
+	if [ ! -z "$NW_INTENSESEARCH" ]; then
+		[[ "$NW_INTENSESEARCH" = "true" || "$NW_INTENSESEARCH" = "false" ]] || { _log "WARN: NW_INTENSESEARCH not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set NW_INTENSESEARCH to false"
+				NW_INTENSESEARCH="false"; }
+	fi
+
 	[[ "$CHECKCLOCKACTIVE" = "true" || "$CHECKCLOCKACTIVE" = "false" ]] || { _log "WARN: CHECKCLOCKACTIVE not set properly. It has to be 'true' or 'false'."
 			_log "WARN: Set CHECKCLOCKACTIVE to false"
 			CHECKCLOCKACTIVE="false"; }
@@ -626,7 +632,7 @@ _check_config() {
 			_log "INFO: Read the README for further Infos"
 		fi
 	else
-		[[ "$NETSTATWORD" =~ ^(A-Z)$ ]] || {
+		[[ "$NETSTATWORD" =~ ^([A-Z]{1,})$ ]] || {
 			_log "WARN: Invalid parameter list format: NETSTATWORD [A-Z]"
 			_log "WARN: You set it to '$NETSTATWORD', which is not a correct syntax, only UPPERCASE is allowed!"
 			_log "WARN: Unsetting NETSTATWORD"
@@ -703,7 +709,7 @@ _check_config() {
 #   return: 	none
 #
 _check_networkconfig() {
-	# Read IP-Adress and SERVERIP from 'ifconfig eth0'
+	# Read IP-Adress and SERVERIP from e.g. 'ifconfig eth0'
 	_log "INFO: ------------------------------------------------------"
 	_log "INFO: Reading NICs ,IPs, ..."
 	NICNR=0
@@ -714,12 +720,49 @@ _check_networkconfig() {
 
 		if ip link show up | grep $NWADAPTERS > /dev/null; then
 			_log "INFO: NIC '$NWADAPTERS' found: try to get IP"
-			IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')"
+
+			# Testcode for HP Microserver N40L
+			if [ "$NW_INTENSESEARCH" = "true" ]; then
+				NW_WAIT=0
+				if [ "$NWADAPTERS" = "eth0" ]; then
+					_log "INFO: NW_INTENSESEARCH(): eth0 only --------------------------------"
+					while true; do
+						let NW_WAIT++
+						if [ $NW_WAIT -le 5 ]; then
+							if ! ifconfig $NWADAPTERS | egrep -q "inet "; then
+								_log "INFO: NW_INTENSESEARCH(): Run: #${NW_WAIT}: No internet-Adress found - wait 60 sec for initializing the network"
+								sleep 60
+							else
+								_log "INFO: NW_INTENSESEARCH(): Run: #${NW_WAIT}: IP-Adress found"
+								break
+							fi
+						else
+							_log "WARN: No internet-Adress for eth0 found after 5 minutes - The script will not work maybe ..."
+							break
+						fi
+					done
+					_log "INFO: NW_INTENSESEARCH(): ----------------------------------------"
+				fi
+			fi
+
+			# old: IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')"
+			# new:
+			IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | egrep "inet " | sed 's/[ ]*Bcast.*//g; s/.*://g')"
 			SERVERIP[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/.*\.//g')"
 			CLASS[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/\(.*\..*\..*\)\..*/\1/g')"
 			_log "INFO: '$NWADAPTERS' has IP: ${IPFROMIFCONFIG[$NICNR]}"
 
 			if $DEBUG; then
+				# ifconfig in extra variables for easier debugging
+				ifconfig_DEBUG="$(ifconfig $NWADAPTERS)"
+				IPFROMIFCONFIG_DEBUG_1="$(ifconfig $NWADAPTERS | egrep "inet ")"
+				IPFROMIFCONFIG_DEBUG_2="$(ifconfig $NWADAPTERS | egrep "inet " | sed 's/[ ]*Bcast.*//g')"
+				# Log-Output all the stuff
+				_log "DEBUG: ifconfig $NWADAPTERS (Begin) ----------"
+				_log "DEBUG: $ifconfig_DEBUG"
+				_log "DEBUG: ifconfig $NWADAPTERS (End) ----------"
+				_log "DEBUG: IPFROMIFCONFIG_DEBUG_1: $IPFROMIFCONFIG_DEBUG_1"
+				_log "DEBUG: IPFROMIFCONFIG_DEBUG_2: $IPFROMIFCONFIG_DEBUG_2"
 				_log "DEBUG: _check_networkconfig(): IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
 				_log "DEBUG: _check_networkconfig(): SERVERIP$NICNR: ${SERVERIP[$NICNR]}"
 				_log "DEBUG: _check_networkconfig(): CLASS$NICNR: ${CLASS[$NICNR]}"
@@ -740,18 +783,20 @@ _check_networkconfig() {
 			[[ "${CLASS[$NICNR]}" =~ ^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)$ ]] || {
 				_log "WARN: Invalid parameter format: Class: nnn.nnn.nnn]"
 				_log "WARN: It is set to '${CLASS[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig ' did something wrong"
-				#_log "WARN: Uncomment the CLASS- and SERVERIP-Line in /etc/autoshutdown.conf and change it to your needs to bypass this error"
 				_log "WARN: Please report this Bug and the CLI-output of 'ifconfig'"
-				_log "WARN: exiting ..."
-				exit 1; }
+				#_log "WARN: exiting ..."
+				#exit 1; }
+				_log "WARN: unsetting  $NIC[$NICNR] ..."
+				unset NIC[$NICNR]; }
 
 			[[ "${SERVERIP[$NICNR]}" =~ ^(25[0-4]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])$ ]] || {
 				_log "WARN: Invalid parameter format: SERVERIP [iii]"
 				_log "WARN: It is set to '${SERVERIP[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig' did something wrong"
-				#_log "WARN: Uncomment the CLASS- and SERVERIP-Line in autoshutdown.conf and change it to yur needs to bypass this error"
 				_log "WARN: Please report this Bug and the CLI-output of 'ifconfig'"
-				_log "WARN: exiting ..."
-				exit 1; }
+				#_log "WARN: exiting ..."
+				#exit 1; }
+				_log "WARN: unsetting  $NIC[$NICNR] ..."
+				unset NIC[$NICNR]; }
 
 		else
 			_log "INFO: NIC '$NWADAPTERS' not found, skipping '$NWADAPTERS'"
@@ -761,7 +806,6 @@ _check_networkconfig() {
 
 	if [ $FOUNDIP = 0 ]; then
 		_log "WARN: No SERVERIP or CLASS found"
-# 		_log "WARN: Please check the config!"
 		_log "WARN: exiting ..."
 		exit 1
 	fi
@@ -942,6 +986,7 @@ if $DEBUG ; then
 	_log "DEBUG: STATUSFILEDIR: $STATUSFILEDIR"
 	_log "DEBUG: VERBOSE: $VERBOSE"
 	_log "DEBUG: FAKE: $FAKE"
+	_log "DEBUG: NW_INTENSESEARCH: $NW_INTENSESEARCH"
 fi   # > if $DEBUG ;then
 
 _log "INFO:---------------- script started ----------------------"
