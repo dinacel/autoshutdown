@@ -57,3 +57,7 @@ Changelog:
 						: Code Cleanup
 
 2012/Apr/21		0.3.3.1	: Fix: The PC doesn't shutdown, if not in fake-mode
+
+2012/May/05		0.3.3.2	: Internal Test-version
+
+2012/May/05		0.3.3.3	: New Option: NW_INTENSESEARCH for PCs which need longer to get IP-address

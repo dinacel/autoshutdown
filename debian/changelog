@@ -1,3 +1,9 @@
+autoshutdown (0.3.3.3) stable; urgency=high
+
+  * New Option: NW_INTENSESEARCH for PCs which need longer to get IP-address
+
+ -- Marcel Beck <marcel.beck@mbeck.org>  Tue, 05 Jun 2012 20:11:05 +0200
+
 autoshutdown (0.3.3.1) stable; urgency=high
 
   * Fix: The PC doesn't shutdown, if not in fake-mode
