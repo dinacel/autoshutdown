@@ -8,6 +8,6 @@ Homepage: http://omv-plugins.org
 
 Package: autoshutdown
 Architecture: all
-Depends: fping
+Depends: ${misc:Depends}, fping
 Priority: optional
 Description: autoshutdown
