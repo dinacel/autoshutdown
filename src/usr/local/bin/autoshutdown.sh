@@ -11,7 +11,8 @@
 #  REQUIREMENTS:  	Debian / Ubuntu-based system
 #          BUGS:  	---
 #        AUTHOR:	Solo0815 - R. Lindlein (Ubuntu-Port, OMV-Changes), it should work on any Debain-based System, too
-#					based on autoshutdown.sh v0.7.008 by chrikai, see: https://sourceforge.net/apps/phpbb/freenas/viewtopic.php?f=12&t=2158&start=60
+#					based on autoshutdown.sh v0.7.008 by chrikai, see:
+#					https://sourceforge.net/apps/phpbb/freenas/viewtopic.php?f=12&t=2158&start=60
 #=======================================================================
 
 # Changelog:	see extra file!
@@ -34,7 +35,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# then you have a separate log with all autoshutdown-entrys
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.3.3"         # script version information
+VERSION="0.3.4.2"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -330,68 +331,122 @@ _check_processes()
 
 }
 
+
 ################################################################
 #
-#   name         : _check_autounrar
-#   parameter      : none
+#   name 			: _check_plugin
+#   parameter		: none
 #   global return   : none
-#   return         : 1      : if process has not been checked or found active
-#               : 0      : if process has been found active
+#   return			: 1      : if file has not been found
+#   				: 0      : if file has been found
 #
-_check_autounrar()
+# With this plugin-system everyone can check if a specific file exists.
+# If it exists, the machine won't shutdown
+#
+_check_plugin()
 {
+	FOUNDVALUE_checkplugin=0
 	RVALUE=1
 
-	# check for each given command name in LOADPROCNAMES if it is currently stated active in "top"
-	# i found, that for smbd, proftpd, nsfd, ... there are processes always present in "ps" or "top" output
-	# this could be due to the "daemon" mechanism... Only chance to identify there is something happening with these
-	# processes, is to check if "top" states them active -> "-I" parameter on the command line
+	ASD_pluginNR=0
+	for ASD_plugin in /etc/autoshutdown.d/*; do
+		let ASD_pluginNR++
 
-	if $DEBUG ; then
-		_log "DEBUG: _check_autounrar(): cat $UNRARLOGDIR/$UNRARLOG = $(cat $UNRARLOGDIR/$UNRARLOG)"
-		_log "DEBUG: _check_autounrar(): AUTOUNRARCHECK is running now"
-	fi
+		PLUGIN_name[$ASD_pluginNR]="${ASD_plugin##*/}"
+		PLUGIN_folder[$ASD_pluginNR]="$(egrep 'folder=' $ASD_plugin | sed 's/folder=//g; s/"//g')"
+		PLUGIN_file[$ASD_pluginNR]="$(egrep 'file=' $ASD_plugin | sed 's/file=//g; s/"//g')"
+		PLUGIN_content[$ASD_pluginNR]="$(egrep 'content=' $ASD_plugin | sed 's/content=//g; s/"//g')"
 
-	if [ -f $UNRARLOGDIR/$UNRARLOG ]; then
-		if [ "$(cat $UNRARLOGDIR/$UNRARLOG)" = "processing job" ]; then
-			_log "INFO: _check_autounrar(): unrar-script running - no shutdown."
-			let RVALUE--
+		if $DEBUG; then
+			_log "DEBUG: -----------------------------------------__"
+			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: ASD_PLUGIN-file: $ASD_plugin"
+			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_name[$ASD_pluginNR]: ${PLUGIN_name[$ASD_pluginNR]}"
+			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_folder[$ASD_pluginNR]: ${PLUGIN_folder[$ASD_pluginNR]}"
+			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_file[$ASD_pluginNR]: ${PLUGIN_file[$ASD_pluginNR]}"
+			if [ ! -z ${PLUGIN_content[$ASD_pluginNR]} ]; then
+				_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_content[$ASD_pluginNR]: ${PLUGIN_content[$ASD_pluginNR]}"
+			fi
 		fi
-	fi
 
-	if $DEBUG ; then _log "DEBUG: _check_autounrar(): RVALUE: $RVALUE" ; fi
+		# When file exists (matches regex), no shutdown
+		if [ "$(find ${PLUGIN_folder[$ASD_pluginNR]} -regextype posix-egrep -regex '.*'${PLUGIN_file[$ASD_pluginNR]} 2> /dev/null | wc -l)" -gt 0 ]; then
+			
+			# Check, if PLUGIN_content for the plugin is defined
+			if [ ! -z ${PLUGIN_content[$ASD_pluginNR]} ]; then
+
+				# content found
+				if [ $(egrep -c ${PLUGIN_content[$ASD_pluginNR]} ${PLUGIN_folder[$ASD_pluginNR]}/${PLUGIN_file[$ASD_pluginNR]}) -gt 0 ]; then
+					_log "INFO: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]} -> content found (${PLUGIN_content[$ASD_pluginNR]}) - no shutdown."
+					let FOUNDVALUE_checkplugin++
+				else
+					# content not found
+					_log "INFO: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]} -> content not found (${PLUGIN_content[$ASD_pluginNR]})"
+				fi
+
+			# content not defined and file found
+			else
+				_log "INFO: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]} -> File found - no shutdown."
+				let FOUNDVALUE_checkplugin++
+			fi
+		else
+			# If file doesn't exist -> shutdown
+			_log "INFO: _check_plugin(): ${PLUGIN_name[$ASD_pluginNR]} - File not found"
+		fi
+
+		if $DEBUG ; then _log "DEBUG: _check_plugin(): ${PLUGIN_name[$ASD_pluginNR]} FOUNDVALUE_checkplugin: $FOUNDVALUE_checkplugin" ; fi
+
+	done
+
+	if $DEBUG ; then _log "DEBUG: _check_plugin(): All PlugIns processed - FOUNDVALUE_checkplugin: $FOUNDVALUE_checkplugin" ; fi
+
+	if [ $FOUNDVALUE_checkplugin -gt 0 ]; then
+		let RVALUE--
+	fi
+	if $DEBUG ; then _log "DEBUG: _check_plugin(): after all plugin-checks: RVALUE: $RVALUE" ; fi
 
 	return ${RVALUE}
-
 }
 
 
 ################################################################
 #
-#   name         : _check_statusfile
+#   name         : _check_sabnzbd
 #   parameter      : none
 #   global return   : none
-#   return         : 1      : if *.status-File has not been checked or found
-#               : 0      : if file has been found
+#   return         : 1      : if sabnzdb is downloading
+#               : 0      : if sabnzdb is not downloading -> ready to shutdown
 #
-_check_statusfile()
+# This script checks sabnzbd to see if sabnzbd is currently downloading through the API
+# Original script here: https://forums.sabnzbd.org/viewtopic.php?t=5462#p39170
+#
+_check_sabnzbd()
 {
 	RVALUE=1
+	NICNR_SABRANGE="$1"
+	NOTRAFFIC="0.00"
 
-	# check for each *.status-File in given Dir. If any *.status-File is found, return 0, otherwise 1
-	if $DEBUG ; then
-		_log "DEBUG: _check_statusfile(): ls $STATUSFILEDIR *.status"
-		_log "DEBUG: _check_statusfile(): _check_statusfile is running now"
+	if $DEBUG; then
+		_log "DEBUG: _check_sabnzbd(): Check for ${NIC[$NICNR_SABRANGE]} - ${CLASS[$NICNR_SABRANGE]}.${SERVERIP[$NICNR_SABRANGE]}"
+		_log "DEBUG: _check_sabnzbd(): SABPORT: $SABPORT"
+		_log "DEBUG: _check_sabnzbd(): SABAPIKEY: $SABAPIKEY"
+		_log "DEBUG: _check_sabnzbd(): NOTRAFFIC: $NOTRAFFIC"
 	fi
 
-	if [ -f $STATUSFILEDIR/*.status ]; then
-		STATUSFILES="$(ls $STATUSFILEDIR *.status)"
-        _log "INFO: _check_statusfile(): status-file found - no shutdown."
-		if $DEBUG ; then _log "DEBUG: _check_statusfile(): STATUSFILES: $STATUSFILES" ; fi
+	# Output to std-out, Timeout 5 sec (-T), retries 1 (-t)
+	SABTRAFFIC="$(wget -q -t 1 -T 5 "http://${CLIENTIP}:${SABPORT}/sabnzbd/api?mode=qstatus&output=xml&apikey=${SABAPIKEY}"  -O - | xmlstarlet sel -t -v qstatus/kbpersec 2&> /dev/null)"
+
+	if $DEBUG; then _log "DEBUG: _check_sabnzbd(): SABTRAFFIC: $SABTRAFFIC"; fi
+
+	if [ -z $SABTRAFFIC ]; then
+		_log "INFO: _check_sabnzbd(): couldn't find actual sabnzbd-traffic. Is sabnzbd running?"
+	elif [ "$SABTRAFFIC" = "$NOTRAFFIC" ]; then
+		_log "INFO: _check_sabnzbd(): no running downloads."
+	else
+		_log "INFO: Sabnzbd: download runniing with $SABTRAFFIC kb/s  - no shutdown."
 		let RVALUE--
 	fi
-
-	if $DEBUG ; then _log "DEBUG: _check_statusfile(): RVALUE: $RVALUE" ; fi
+	
+	if $DEBUG ; then _log "DEBUG: _check_sabnzbd(): RVALUE: $RVALUE" ; fi
 
 	return ${RVALUE}
 }
@@ -590,29 +645,17 @@ _check_config() {
 			FAKE="true"; VERBOSE="true"; DEBUG="TRUE"; }
 	fi
 
-	if [ ! -z "$AUTOUNRARCHECK" ]; then
-		[[ "$AUTOUNRARCHECK" = "true" || "$AUTOUNRARCHECK" = "false" ]] || { _log "WARN: AUTOUNRARCHECK not set properly. It has to be 'true' or 'false'."
-				_log "WARN: Set AUTOUNRARCHECK to false"
-				AUTOUNRARCHECK="false"; }
-	fi
-
-	if [ ! -z "$STATUSFILECHECK" ]; then
-		[[ "$STATUSFILECHECK" = "true" || "$STATUSFILECHECK" = "false" ]] || { _log "WARN: STATUSFILECHECK not set properly. It has to be 'true' or 'false'."
-				_log "WARN: Set STATUSFILECHECK to false"
-				STATUSFILECHECK="false"; }
-	fi
-
-	if [ ! -z "$NW_INTENSESEARCH" ]; then
-		[[ "$NW_INTENSESEARCH" = "true" || "$NW_INTENSESEARCH" = "false" ]] || { _log "WARN: NW_INTENSESEARCH not set properly. It has to be 'true' or 'false'."
-				_log "WARN: Set NW_INTENSESEARCH to false"
-				NW_INTENSESEARCH="false"; }
+	if [ ! -z "$PLUGINCHECK" ]; then
+		[[ "$PLUGINCHECK" = "true" || "$PLUGINCHECK" = "false" ]] || { _log "WARN: AUTOUNRARCHECK not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set PLUGINCHECK to false"
+				PLUGINCHECK="false"; }
 	fi
 
 	[[ "$CHECKCLOCKACTIVE" = "true" || "$CHECKCLOCKACTIVE" = "false" ]] || { _log "WARN: CHECKCLOCKACTIVE not set properly. It has to be 'true' or 'false'."
 			_log "WARN: Set CHECKCLOCKACTIVE to false"
 			CHECKCLOCKACTIVE="false"; }
 
-	# Flag: 1 - 999
+	# Flag: 1 - 999 (cycles)
 	[[ "$FLAG" =~ ^([1-9]|[1-9][0-9]|[1-9][0-9]{2})$ ]] || {
 			_log "WARN: Invalid parameter format: Flag"
 			_log "WARN: You set it to '$FLAG', which is not a correct syntax. Only '1' - '999' is allowed."
@@ -700,7 +743,46 @@ _check_config() {
 			_log "WARN: You set it to '$SLEEP', which is not a correct syntax.  Only '1' - '9999' is allowed. Maybe it's empty?"
 			_log "WARN: Setting SLEEP to 180 sec"
 			SLEEP=180; }
+
+	# $SABNZBDCHECK" = "true"
+	if [ ! -z "$SABNZBDCHECK" ]; then
+		[[ "$SABNZBDCHECK" = "true" || "$SABNZBDCHECK" = "false" ]] || { _log "WARN: SABNZBDCHECK not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set SABNZBDCHECK to false"
+				SABNZBDCHECK="false"; }
+	fi
+
+	# SABPORT (max 5 digits)
+	[[ "$SABPORT" =~ ^([1-9]|[1-9][0-9]{1,4})$ ]] || {
+		if [ "$SABNZBDCHECK" = "true" ]; then
+			_log "WARN: Invalid parameter format: SABPORT"
+			_log "WARN: You set it to '$SABPORT', which is not a correct syntax. Maybe it's empty?"
+			if [ "$SABNZBDCHECK" = "true" ]; then
+				_log "WARN: Set SABNZBDCHECK to false, because of invalid portnumber"
+				SABNZBDCHECK="false"
+			fi
+		fi; }
+
+	# APIKEY
+	REGEX="^([A-Za-z0-9]{1,})"
+	if [ "$SABNZBDCHECK" = "true" ]; then
+		if [ "$SABAPIKEY" = "" ]; then
+				_log "WARN: APIKEY for sabnzbd is not set"
+				if [ "$SABNZBDCHECK" = "true" ]; then
+					_log "WARN: Set SABNZBDCHECK to false, because of missing APIKEY."
+					SABNZBDCHECK="false"
+				fi
+		else
+				[[ "$SABAPIKEY" =~ $REGEX ]] || {
+						_log "WARN: Invalid APIKEY"
+						_log "WARN: You set it to '$SABAPIKEY', which is not a correct syntax. Only a-zA-Z0-9 is allowed."
+						if [ "$SABNZBDCHECK" = "true" ]; then
+							_log "WARN: Set SABNZBDCHECK to false, because of invalid APIKEY"
+							SABNZBDCHECK="false"
+						fi; }
+		fi
+	fi
 }
+
 
 ################################################################
 #
@@ -721,29 +803,22 @@ _check_networkconfig() {
 		if ip link show up | grep $NWADAPTERS > /dev/null; then
 			_log "INFO: NIC '$NWADAPTERS' found: try to get IP"
 
-			# Testcode for HP Microserver N40L
-			if [ "$NW_INTENSESEARCH" = "true" ]; then
-				NW_WAIT=0
-				if [ "$NWADAPTERS" = "eth0" ]; then
-					_log "INFO: NW_INTENSESEARCH(): eth0 only --------------------------------"
-					while true; do
-						let NW_WAIT++
-						if [ $NW_WAIT -le 5 ]; then
-							if ! ifconfig $NWADAPTERS | egrep -q "inet "; then
-								_log "INFO: NW_INTENSESEARCH(): Run: #${NW_WAIT}: No internet-Adress found - wait 60 sec for initializing the network"
-								sleep 60
-							else
-								_log "INFO: NW_INTENSESEARCH(): Run: #${NW_WAIT}: IP-Adress found"
-								break
-							fi
+			NW_WAIT=0
+				while true; do
+					let NW_WAIT++
+					if [ $NW_WAIT -le 5 ]; then
+						if ! ifconfig $NWADAPTERS | egrep -q "inet "; then
+							_log "INFO: _check_networkconfig(): Run: #${NW_WAIT}: No internet-Adress found - wait 60 sec for initializing the network"
+							sleep 60
 						else
-							_log "WARN: No internet-Adress for eth0 found after 5 minutes - The script will not work maybe ..."
+							_log "INFO: _check_networkconfig(): Run: #${NW_WAIT}: IP-Adress found"
 							break
 						fi
-					done
-					_log "INFO: NW_INTENSESEARCH(): ----------------------------------------"
-				fi
-			fi
+					else
+						_log "WARN: No internet-Adress for $NIC[$NICNR] found after 5 minutes - The script will not work maybe ..."
+						break
+					fi
+				done
 
 			# old: IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')"
 			# new:
@@ -758,9 +833,9 @@ _check_networkconfig() {
 				IPFROMIFCONFIG_DEBUG_1="$(ifconfig $NWADAPTERS | egrep "inet ")"
 				IPFROMIFCONFIG_DEBUG_2="$(ifconfig $NWADAPTERS | egrep "inet " | sed 's/[ ]*Bcast.*//g')"
 				# Log-Output all the stuff
-				_log "DEBUG: ifconfig $NWADAPTERS (Begin) ----------"
+				_log "DEBUG: ifconfig $NWADAPTERS (Begin) -------------------"
 				_log "DEBUG: $ifconfig_DEBUG"
-				_log "DEBUG: ifconfig $NWADAPTERS (End) ----------"
+				_log "DEBUG: ifconfig $NWADAPTERS (End) ---------------------"
 				_log "DEBUG: IPFROMIFCONFIG_DEBUG_1: $IPFROMIFCONFIG_DEBUG_1"
 				_log "DEBUG: IPFROMIFCONFIG_DEBUG_2: $IPFROMIFCONFIG_DEBUG_2"
 				_log "DEBUG: _check_networkconfig(): IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
@@ -848,6 +923,7 @@ _check_system_active()
 	# call array "1 until $NICNR" (value is set after scriptstart)
 	for NICNR_CHECKSYSTEMACTIVE in $(seq 1 $NICNR); do
 
+
 		# if NIC is set (not empty) then check IPs connections, else skip it
 		if [ ! -z "${NIC[$NICNR_CHECKSYSTEMACTIVE]}" ]; then
 			if $DEBUG; then _log "DEBUG: _check_system_active() is running - NICNR_CHECKSYSTEMACTIVE: $NICNR_CHECKSYSTEMACTIVE"; fi
@@ -861,9 +937,10 @@ _check_system_active()
 					let CNT++
 					if $DEBUG; then _log "DEBUG: _ping_range() -> RETURN: $PINGRANGERETURN"; fi
 				fi
+				if $DEBUG ; then _log "DEBUG: _check_system_active(): call _ping_range -> CNT: $CNT "; fi
+			else
+				if $DEBUG ; then _log "DEBUG: _check_system_active(): _ping_range not called -> CNT: $CNT "; fi
 			fi
-
-			if $DEBUG ; then _log "DEBUG: _check_system_active(): call _ping_range -> CNT: $CNT "; fi
 
 			if [ $CNT -eq 0 ]; then
 			# PRIO 2: Do a check for some active network sockets, maybe, one never knows...
@@ -874,14 +951,33 @@ _check_system_active()
 				fi
 
 				if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_net_status -> CNT: $CNT "; fi
+			else
+				if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_net_status not called -> CNT: $CNT "; fi
+			fi   # > if[ $CNT -eq 0 ]; then
 
+			if [ $CNT -eq 0 ]; then
+				# PRIO 3: Sabnzbd-traffic-checked
+				# Do a check for sabnzbd-downloading
+				# I've put it here, because every NIC should be checked for sabnzbd-activity
+				if [ "$SABNZBDCHECK" = "true" ] ; then
+					_check_sabnzbd $NICNR_CHECKSYSTEMACTIVE &&
+					{
+					let CNT++
+					}
+
+					if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_sabnzbd -> CNT: $CNT "; fi
+
+				fi
+			else
+				if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_sabnzbd not called -> CNT: $CNT "; fi
 			fi   # > if[ $CNT -eq 0 ]; then
 
 		fi # >  if [ ! -z "${NIC[$NICNR_CHECKSYSTEMACTIVE]}" ]; then
+
 	done  # > NICNR_CHECKSYSTEMACTIVE in $(seq 1 $NICNR); do
 
 	if [ $CNT -eq 0 ]; then
-		# PRIO 3: Do a check for some active processes, maybe, one never knows...
+		# PRIO 4: Do a check for some active processes, maybe, one never knows...
 		# If there is at least one active, we leave this function with a 'bogus find'
 		_check_processes
 		if [ $? -gt 0 ]; then
@@ -889,38 +985,22 @@ _check_system_active()
 		fi
 
 		if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_processes -> CNT: $CNT "; fi
-
+	else
+		if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_processes not called -> CNT: $CNT "; fi
 	fi   # > if[ $CNT -eq 0 ]; then
 
-
 	if [ $CNT -eq 0 ]; then
-		# PRIO 4: Do a check for autounrar script active, maybe, one never knows...
-		# Only do this when activated by setting $AUTOUNRARCHECK="true" in configuration
-		# If this is active, we leave this function with a 'bogus find'
-		if [ "$AUTOUNRARCHECK" = "true" ]; then
-			_check_autounrar &&
+		# PRIO 5: Do a PlugIn-Check for any existing files, setup in plugins
+		if [ "$PLUGINCHECK" = "true" ] ; then
+			_check_plugin &&
 				{
 				let CNT++
 				}
 
-			if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_autounrar -> CNT: $CNT "; fi
-
+			if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_plugin -> CNT: $CNT "; fi
 		fi
-
-	fi   # > if[ $CNT -eq 0 ]; then
-
-	if [ $CNT -eq 0 ]; then
-		# PRIO 5: Do a check for any *.status-File in the given directory
-		if [ "$STATUSFILECHECK" = "true" ] ; then
-			_check_statusfile &&
-				{
-				let CNT++
-				}
-
-			if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_statusfile -> CNT: $CNT "; fi
-
-		fi
-
+	else
+		if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_plugin not called -> CNT: $CNT "; fi
 	fi   # > if[ $CNT -eq 0 ]; then
 
 	return ${CNT};
@@ -979,14 +1059,21 @@ if $DEBUG ; then
 	_log "DEBUG: LOADPROCNAMES: $LOADPROCNAMES"
 	_log "DEBUG: NSOCKETNUMBERS: $NSOCKETNUMBERS"
 	_log "DEBUG: TEMPPROCNAMES: $TEMPPROCNAMES"
-	_log "DEBUG: AUTOUNRARCHECK: $AUTOUNRARCHECK"
-	_log "DEBUG: UNRARLOGDIR: $UNRARLOGDIR"
-	_log "DEBUG: UNRARLOG: $UNRARLOG"
 	_log "DEBUG: STATUSFILECHECK: $STATUSFILECHECK"
 	_log "DEBUG: STATUSFILEDIR: $STATUSFILEDIR"
 	_log "DEBUG: VERBOSE: $VERBOSE"
 	_log "DEBUG: FAKE: $FAKE"
-	_log "DEBUG: NW_INTENSESEARCH: $NW_INTENSESEARCH"
+	_log "DEBUG: SHUTDOWNCOMMAND: $SHUTDOWNCOMMAND"
+	_log "DEBUG: NETSTATWORD: $NETSTATWORD"
+	_log "DEBUG: SABNZBDCHECK: $SABNZBDCHECK"
+	_log "DEBUG: SABPORT: $SABPORT"
+	_log "DEBUG: SABAPIKEY: $SABAPIKEY"
+	_log "DEBUG: PLUGINCHECK: $PLUGINCHECK"
+	# List all PlugIns
+	_log "DEBUG: PlugIns found in /etc/autoshutdown.d:"
+	for ASD_plugin_firstcheck in /etc/autoshutdown.d/*; do
+		_log "DEBUG: Plugin: $ASD_plugin_firstcheck"
+	done
 fi   # > if $DEBUG ;then
 
 _log "INFO:---------------- script started ----------------------"

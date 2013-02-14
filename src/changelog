@@ -61,3 +61,13 @@ Changelog:
 2012/May/05		0.3.3.2	: Internal Test-version
 
 2012/May/05		0.3.3.3	: New Option: NW_INTENSESEARCH for PCs which need longer to get IP-address
+
+2012/Nov/17		0.3.4.0	: Added support for sabnzbd
+
+2013/Jan/30		0.3.4.1	: Added support for plugins (see README for more infos)
+
+2013/Feb/13		0.3.4.2	: code cleanup
+						: better plugin support
+						: removed autounrar-check (can be done with a plugin)
+						: NW_INTENSESEARCH removed, it is automatically done
+						: PLUGINCHECK added, see README for more infos

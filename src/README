@@ -1,5 +1,7 @@
 Autoshutdown-Script for OMV, Debian and Ubuntu:
 -----------------------------------------------
+Version 0.3.4.2
+
 Bugs and feature-requests:
 https://sourceforge.net/apps/phpbb/openmediavault/viewtopic.php?f=5&t=571&start=0
 English is not my native language, i hope you understand it anyway. 
@@ -80,43 +82,40 @@ e.g.:
 192.168.1.45
 If this expert-setting is used, the IPs specified in "RANGE" or in GUI doesn't work
 
-AUTOUNRARCHECK
-Only activate this feature, when using autounrar script
-set it to "true" for a check, to "false" (or uncemmented) to skip the check
-If an extraction-process of autounrar is running, the NAS is not shut down
-AutoUnrar-Script: see https://sourceforge.net/projects/auto-unrar/
-If you need a modified version of Autounrar, which runs on OMV, please leave me a message
-
-UNRARLOGDIR
-Set the log-Dir of status.info (from Autounrar)
-replace <your_directoy> with target directory of autounrar logfile
-
-UNRARLOG
-Set the filename of "status.info" from autounrar
-
-STATUSFILECHECK
-Set this to true, if autoshutdown.sh should check for any *.status-File in $STATUSFILEDIR
+PLUGINCHECK
+Set this to true, if autoshutdown.sh checks for PlugIns in /etc/autoshutdown.d
 set it to "false" (or uncemmented) to skip the check
-if any file exists autoshutdown.sh doesn't shutdown the PC
-Useful for backupscripts
-It checks for a *.status file in a given Directory. If it exists, the PC is not shut down. It is not nice if the PC is shutting down while the backup-script is running. 
+
+E.g.: When ClamAV does a check, the Server shouldn't shut down
+How to do that?
+Let's look at a example: in the clamav-plugin for autoshutdown (etc/autoshutdown.d/clamav) the following is set:
+
+   # In which folder is the file to look for
+   folder="/var/run/clamav"
+   # filename (can be expanded with regexes)
+   file="clamdscan-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+
+Then, if a file i.e.: clamdscan-aaaa3556-adfe-5678-abcdef012345 (or whatever UUID) in /var/run/clamav exists, the Server isn't shutdown
+
+also possible:
+    folder="/home/user"
+    file="backup.status"
+    content="processing job"
+
+If a file /home/user/backup.status exists with the content 'processing job', the Server isn't shutdow
+This is useful for backupscripts. It is not nice if the PC is shutting down while the backup-script is running. 
 In my backup-script i use a simple
 
-    touch anydir/backup.status
+    echo "processing job" > /home/user/backup.status
 
 at the beginning and a
 
-    rm anydir/backup.status
+    rm /home/user/backup.status
 
 at the end of the script. In the boot-Phase also a
 
-    rm anydir/*.status
+    rm /home/user/*.status
 
 to delete all *.status files, which are not deleted before (loss of power for example)
 
-STATUSFILEDIR
-location of the *.status-file created e.g. of a backup-script
-
-NW_INTENSESEARCH
-for PCs which need longer to get IP-address. Set this to "true", then autoshutdown.sh waits for the network to get an IP-address.
-After 5 minutes without an IP-address it goes on with the other checks, whether it has found an IP or not
+Please have a look at the two example files in /etc/autoshutdown.d
