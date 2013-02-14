@@ -363,7 +363,7 @@ _check_plugin()
 			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_name[$ASD_pluginNR]: ${PLUGIN_name[$ASD_pluginNR]}"
 			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_folder[$ASD_pluginNR]: ${PLUGIN_folder[$ASD_pluginNR]}"
 			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_file[$ASD_pluginNR]: ${PLUGIN_file[$ASD_pluginNR]}"
-			if [ ! -z ${PLUGIN_content[$ASD_pluginNR]} ]; then
+			if [ ! -z "${PLUGIN_content[$ASD_pluginNR]}" ]; then
 				_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_content[$ASD_pluginNR]: ${PLUGIN_content[$ASD_pluginNR]}"
 			fi
 		fi
@@ -372,10 +372,10 @@ _check_plugin()
 		if [ "$(find ${PLUGIN_folder[$ASD_pluginNR]} -regextype posix-egrep -regex '.*'${PLUGIN_file[$ASD_pluginNR]} 2> /dev/null | wc -l)" -gt 0 ]; then
 			
 			# Check, if PLUGIN_content for the plugin is defined
-			if [ ! -z ${PLUGIN_content[$ASD_pluginNR]} ]; then
+			if [ ! -z "${PLUGIN_content[$ASD_pluginNR]}" ]; then
 
 				# content found
-				if [ $(egrep -c ${PLUGIN_content[$ASD_pluginNR]} ${PLUGIN_folder[$ASD_pluginNR]}/${PLUGIN_file[$ASD_pluginNR]}) -gt 0 ]; then
+				if [ $(egrep -c "${PLUGIN_content[$ASD_pluginNR]}" "${PLUGIN_folder[$ASD_pluginNR]}/${PLUGIN_file[$ASD_pluginNR]}") -gt 0 ]; then
 					_log "INFO: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]} -> content found (${PLUGIN_content[$ASD_pluginNR]}) - no shutdown."
 					let FOUNDVALUE_checkplugin++
 				else
