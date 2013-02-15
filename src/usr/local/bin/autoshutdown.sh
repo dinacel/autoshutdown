@@ -30,12 +30,8 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# for a separate Log:
 							# Put the file "autoshutdownlog.conf" in /etc/rsyslog.d/
 
-							# OLD: add the line (default="local6")
-							# "local6.* %/var/log/autoshutdown.log" to syslog.conf
-							# then you have a separate log with all autoshutdown-entrys
-
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.4.2"         # script version information
+VERSION="0.3.4.3"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -72,8 +68,8 @@ _log()
 #
 #   name 		: _ping_range
 #   parameter  	: none
-	#   return		: CNT   : number of active IP hosts within given IP range
-
+#   return		: CNT   : number of active IP hosts within given IP range
+#
 _ping_range()
 {
 	NICNR_PINGRANGE="$1"
@@ -160,16 +156,6 @@ _shutdown()
    # Goodbye and thanks for all the fish!!
    # We've had no responses for the required number of consecutive scans
    # defined in FLAG shutdown & power off.
-
-	if [ "$AUTOUNRARCHECK" = "true" ]; then
-		# kill the autounrar-script
-		kill -9 $(ps -aef | egrep -v "(sudo|grep)" | grep auto-unrar-1.1.2 | awk '{print $2}')
-		if [ $? -ne 0 ]; then
-			_log "WARN: Error occured: kill $(ps -ef | egrep -v '(sudo|grep)' | grep auto-unrar-1.1.2 | awk '{print $2}')"
-		else
-			_log "INFO: Java sucessfull killed (autounrar)"
-		fi
-	fi
 
 	if [ -z "$SHUTDOWNCOMMAND" ]; then
 		SHUTDOWNCOMMAND="shutdown -h now"
@@ -804,24 +790,22 @@ _check_networkconfig() {
 			_log "INFO: NIC '$NWADAPTERS' found: try to get IP"
 
 			NW_WAIT=0
-				while true; do
-					let NW_WAIT++
-					if [ $NW_WAIT -le 5 ]; then
-						if ! ifconfig $NWADAPTERS | egrep -q "inet "; then
-							_log "INFO: _check_networkconfig(): Run: #${NW_WAIT}: No internet-Adress found - wait 60 sec for initializing the network"
-							sleep 60
-						else
-							_log "INFO: _check_networkconfig(): Run: #${NW_WAIT}: IP-Adress found"
-							break
-						fi
+			while true; do
+				let NW_WAIT++
+				if [ $NW_WAIT -le 5 ]; then
+					if ! ifconfig $NWADAPTERS | egrep -q "inet "; then
+						_log "INFO: _check_networkconfig(): Run: #${NW_WAIT}: No internet-Adress found - wait 60 sec for initializing the network"
+						sleep 60
 					else
-						_log "WARN: No internet-Adress for $NIC[$NICNR] found after 5 minutes - The script will not work maybe ..."
+						_log "INFO: _check_networkconfig(): Run: #${NW_WAIT}: IP-Adress found"
 						break
 					fi
-				done
+				else
+					_log "WARN: No internet-Adress for $NIC[$NICNR] found after 5 minutes - The script will not work maybe ..."
+					break
+				fi
+			done
 
-			# old: IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | grep -e "\(inet\).*Bcast.*" | awk '{print $2}' | sed 's/[^0-9.]//g')"
-			# new:
 			IPFROMIFCONFIG[$NICNR]="$(ifconfig $NWADAPTERS | egrep "inet " | sed 's/[ ]*Bcast.*//g; s/.*://g')"
 			SERVERIP[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/.*\.//g')"
 			CLASS[$NICNR]="$(echo ${IPFROMIFCONFIG[$NICNR]} | sed 's/\(.*\..*\..*\)\..*/\1/g')"
@@ -859,8 +843,6 @@ _check_networkconfig() {
 				_log "WARN: Invalid parameter format: Class: nnn.nnn.nnn]"
 				_log "WARN: It is set to '${CLASS[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig ' did something wrong"
 				_log "WARN: Please report this Bug and the CLI-output of 'ifconfig'"
-				#_log "WARN: exiting ..."
-				#exit 1; }
 				_log "WARN: unsetting  $NIC[$NICNR] ..."
 				unset NIC[$NICNR]; }
 
@@ -868,8 +850,6 @@ _check_networkconfig() {
 				_log "WARN: Invalid parameter format: SERVERIP [iii]"
 				_log "WARN: It is set to '${SERVERIP[$NICNR]}', which is not a correct syntax. Maybe parsing 'ifconfig' did something wrong"
 				_log "WARN: Please report this Bug and the CLI-output of 'ifconfig'"
-				#_log "WARN: exiting ..."
-				#exit 1; }
 				_log "WARN: unsetting  $NIC[$NICNR] ..."
 				unset NIC[$NICNR]; }
 
@@ -1098,7 +1078,6 @@ while : ; do
 	_log "INFO: new supervision cycle started - check active hosts or processes"
 
 	# Main loop, just keep pinging and checking for processes, to decide whether we can shutdown or not...
-	#_log "INFO: check number of active hosts in configured network range..."
 	if _check_system_active; then
 
 			# Nothing found so sub one from the count and check if we can shutdown yet.

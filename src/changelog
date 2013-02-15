@@ -71,3 +71,6 @@ Changelog:
 						: removed autounrar-check (can be done with a plugin)
 						: NW_INTENSESEARCH removed, it is automatically done
 						: PLUGINCHECK added, see README for more infos
+
+2013/Feb/15		0.3.4.3	: more code cleanup
+						: added /etc/pm/sleep.d/autoshutdown-restart - this script restarts autoshutdown after hibernate/suspend
