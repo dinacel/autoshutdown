@@ -119,7 +119,7 @@ _ping_range()
 
 			# If the pinglist is not created, create it with all IPs
 			# don't add the ServerIP (OMV-IP) to the pinglist (grep -v)
-			if $CREATEPINGLIST; then echo "${CLASS[$NICNR_PINGRANGE]}.$J" | grep -v ${CLASS[$NICNR_PINGRANGE]}.${SERVERIP[$NICNR_PINGRANGE]} >> $PINGLIST; fi
+			if $CREATEPINGLIST; then echo "${CLASS[$NICNR_PINGRANGE]}.$J" | grep -vw ${CLASS[$NICNR_PINGRANGE]}.${SERVERIP[$NICNR_PINGRANGE]} >> $PINGLIST; fi
 
 		done   # > for (( J=$iSTART;$FORCHECK;$STEP )); do
 
