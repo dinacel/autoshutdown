@@ -111,24 +111,16 @@ VERBOSE="false"			# use the verbose mode, with additional output on the command 
 
 # ----------------------------------------------------------------------------------------
 
-####  Auto-Unrar Check ####
-#AUTOUNRARCHECK="true"      # Only activate this feature, when using autounrar script
-							# set it to "true" for a check, to "false" (or uncemmented) to skip the check
-                     # If an extraction-process is running, the NAS is not shut down
-					# AutoUnrar-Script: see https://sourceforge.net/projects/auto-unrar/
+#ULDLCHECK="true"
+# set it to "true" for a network-traffic check. Then don't forget to set ULDLRATE also!
 
-#UNRARLOGDIR="/home/user"
-                     # Set the log-Dir of status.info
-                     # replace <your_directoy> with target directory of auto unrar logfile
-
-#UNRARLOG="status.info"      # Set the filename of "status.info" from autounrar
+#ULDLRATE=20
+# define the network traffic in kB/s
+# in each cycle autoshutdown checks whether the network-traffic (upload or download) is over the set value
+# under this value, no shutdown
+# over this value, your PC shuts down
 
 # ----------------------------------------------------------------------------------------
 
-#### Statusfile Check ####
-#STATUSFILECHECK="true"  # Set this to true, if autoshutdown.sh should check for any *.status-File in $STATUSFILEDIR
-						# set it to "false" (or uncemmented) to skip the check
-						# if any file exists autoshutdown.sh doesn't shutdown the PC
-						# Useful for backupscripts -> See readme
-
-#STATUSFILEDIR="/home/user"
+# PlugIns:
+# see README

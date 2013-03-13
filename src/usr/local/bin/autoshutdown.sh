@@ -31,7 +31,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# Put the file "autoshutdownlog.conf" in /etc/rsyslog.d/
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.4.3"         # script version information
+VERSION="0.3.5.0"         # script version information
 CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
 
@@ -520,6 +520,113 @@ _check_net_status()
 
 ################################################################
 #
+#   name         : _check_ul_dl_rate
+#   parameter      : Array-# of NIC
+#   global return   : none
+#   return         : 1      : if no (not enough) network activity has been found
+#               : 0      : if enough network activity has been found
+#
+# Checks for activity in eth0. It compares the RX and TX bytes
+# every cycle to detect if they significantly changed.
+# If they haven't, it will force the system to sleep.
+#
+
+#ToDo: 
+# - Bug-testing
+
+_check_ul_dl_rate()
+{
+	NICNR_ULDLCHECK="$1"
+	RXTXTMPDIR="/tmp/autoshutdown_tx_rx"
+
+	if [ ! -d $RXTXTMPDIR ]; then
+		if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): creating tmpdir: $RXTXTMPDIR"; fi
+		mkdir $RXTXTMPDIR
+	else
+		if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): tmpdir: $RXTXTMPDIR exists"; fi
+	fi
+
+	_log "INFO: Traffic-Check for '${NIC[${NICNR_ULDLCHECK}]}'"
+
+	# set upload/download-Rate in kB/s
+	ULDLRATE=20
+
+	# RX in kB
+	RX=$(ifconfig ${NIC[${NICNR_ULDLCHECK}]} |grep bytes | awk '{print $2}' | sed 's/bytes://g' | awk '{ printf("%.0f\n", ($1/1024)) }')
+
+	# TX in kB
+	TX=$(ifconfig ${NIC[${NICNR_ULDLCHECK}]} |grep bytes | awk '{print $6}' | sed 's/bytes://g' | awk '{ printf("%.0f\n", ($1/1024)) }')
+
+	if $DEBUG; then _log "DEBUG: _check_ul_dl(): RX: $RX --- TX: $TX"; fi
+
+	# Check if RX/TX Files Exist
+	if [ -f $RXTXTMPDIR/rx.tmp ] && [ -f $RXTXTMPDIR/tx.tmp ]; then
+		if $DEBUG; then _log "DEBUG: _check_ul_dl(): rx.tmp and tx.tmp are existing"; fi
+		p_RX=$(cat $RXTXTMPDIR/rx.tmp) ## store previous RX value in p_RX
+		p_TX=$(cat $RXTXTMPDIR/tx.tmp) ## store previous TX value in p_TX
+
+		if $DEBUG; then _log "DEBUG: _check_ul_dl(): p_RX: $p_RX --- p_TX: $p_TX"; fi
+
+		echo $RX > $RXTXTMPDIR/rx.tmp ## Write new packets to RX file
+		echo $TX > $RXTXTMPDIR/tx.tmp ## Write new packets to TX file
+
+		# Calculate threshold limit
+		let ULDLINCREASE=$ULDLRATE*60*$SLEEP
+		if $DEBUG; then _log "DEBUG: _check_ul_dl(): ULDLINCREASE: $ULDLINCREASE"; fi
+
+		t_RX=$(expr $p_RX + $ULDLINCREASE)
+		t_TX=$(expr $p_TX + $ULDLINCREASE)
+
+		# Calculate difference between the last and the actual value
+		diff_RX=$(expr $RX - $p_RX)
+		diff_TX=$(expr $TX - $p_TX)
+
+		if $DEBUG; then
+			_log "DEBUG: _check_ul_dl(): t_RX: $t_RX --- t_TX: $t_TX"
+			_log "DEBUG: _check_ul_dl(): diff_RX: $diff_RX --- diff_TX: $diff_TX"
+		fi
+
+# test
+		#echo $diff_RX $SLEEP | awk '{ printf("%.1f\n", ($1/1024) ) }'
+		#echo $diff_TX $SLEEP | awk '{ printf("%.1f\n", ($1/1024/$2) ) }'
+
+		# Calculate dl/ul-rate in kB/s - format xx.x
+		LAST_DL_RATE=$(echo $diff_RX $SLEEP | awk '{ printf("%.1f\n", ($1/$2) ) }')
+		LAST_UL_RATE=$(echo $diff_TX $SLEEP | awk '{ printf("%.1f\n", ($1/$2) ) }')
+
+		_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: DL-Rate over the last $SLEEP seconds: $LAST_DL_RATE kB/s"
+		_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL-Rate over the last $SLEEP seconds: $LAST_UL_RATE kB/s"
+
+		# If network bytes have not increased over given value
+		if [ $RX -le $t_RX ] && [ $TX -le $t_TX ]; then
+
+		_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is under $ULDLRATE kB/s"
+
+		return 1 # return value -> shutdown
+
+		else
+			_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is over $ULDLRATE kB/s -> no shutdown"
+
+		return 0
+		fi # > if [ $RX -le $t_RX ] && [ $TX -le $t_TX ]; then
+
+	# RX/TX-Files doesn't Exist
+	else
+		echo $RX > $RXTXTMPDIR/rx.tmp ## Write new packets to RX file
+		echo $TX > $RXTXTMPDIR/tx.tmp ## Write new packets to TX file
+
+		_log "INFO: rx.tmp and/or tx.tmp doesn't exist - writing values to files"
+
+		# This is the obviously the first run, because of tx.tmp and/or rx.tmp doesn't exist - don't shutdown
+		return 0
+	fi # > # if [ -f $RXTXTMPDIR/rx.tmp ] && [ -f $RXTXTMPDIR/tx.tmp ]; then
+
+	_log "INFO: _check_ul_dl_rate: This should not happen - Exit 42"
+	exit 42
+}
+
+################################################################
+#
 #   name         	: _check_clock
 #   parameter      	: UPHOURS : range of hours, where system should go to sleep, e.g. 6..20
 #   global return   : none
@@ -767,8 +874,26 @@ _check_config() {
 						fi; }
 		fi
 	fi
-}
 
+	# $ULDLCHECK" = "true"
+	if [ ! -z "$ULDLCHECK" ]; then
+		[[ "$ULDLCHECK" = "true" || "$ULDLCHECK" = "false" ]] || { _log "WARN: ULDLCHECK not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set ULDLCHECK to false"
+				ULDLCHECK="false"; }
+	fi
+
+	# ULDLRATE (max 6 digits -> 1 - 999999 kB/s)
+	[[ "$ULDLRATE" =~ ^([1-9]|[1-9][0-9]{1,5})$ ]] || {
+		if [ "$ULDLRATE" = "true" ]; then
+			_log "WARN: Invalid parameter format: ULDLRATE"
+			_log "WARN: You set it to '$ULDLRATE', which is not a correct syntax. Maybe it's empty?"
+			if [ "$ULDLCHECK" = "true" ]; then
+				_log "WARN: Set ULDLCHECK to false, because of invalid UL-DL-rate"
+				ULDLCHECK="false"
+			fi
+		fi; }
+
+}
 
 ################################################################
 #
@@ -908,6 +1033,11 @@ _check_system_active()
 		if [ ! -z "${NIC[$NICNR_CHECKSYSTEMACTIVE]}" ]; then
 			if $DEBUG; then _log "DEBUG: _check_system_active() is running - NICNR_CHECKSYSTEMACTIVE: $NICNR_CHECKSYSTEMACTIVE"; fi
 
+# _check_ul_dl_rate $NICNR_CHECKSYSTEMACTIVE
+# 
+# echo "script ended for testing"
+# exit 42
+
 			if [ $CNT -eq 0 ]; then
 				## PRIO 1: Ping each IP address in parameter list. if we find one -> CNT != 0 we'll
 				# stop as there's really no point continuing to looking for more.
@@ -936,7 +1066,23 @@ _check_system_active()
 			fi   # > if[ $CNT -eq 0 ]; then
 
 			if [ $CNT -eq 0 ]; then
-				# PRIO 3: Sabnzbd-traffic-checked
+				# PRIO 3: _check_ul_dl_rate
+				# Do a check for ul-dl-rate
+				# I've put it here, because every NIC should be checked for uldl-rate
+				if [ "$ULDLCHECK" = "true" ] ; then
+					_check_ul_dl_rate $NICNR_CHECKSYSTEMACTIVE &&
+					{
+					let CNT++
+					}
+
+					if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_ul_dl_rate -> CNT: $CNT "; fi
+				fi
+			else
+				if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_ul_dl_rate not called -> CNT: $CNT "; fi
+			fi   # > if[ $CNT -eq 0 ]; then
+
+			if [ $CNT -eq 0 ]; then
+				# PRIO 4: Sabnzbd-traffic-checked
 				# Do a check for sabnzbd-downloading
 				# I've put it here, because every NIC should be checked for sabnzbd-activity
 				if [ "$SABNZBDCHECK" = "true" ] ; then
@@ -1049,6 +1195,8 @@ if $DEBUG ; then
 	_log "DEBUG: SABPORT: $SABPORT"
 	_log "DEBUG: SABAPIKEY: $SABAPIKEY"
 	_log "DEBUG: PLUGINCHECK: $PLUGINCHECK"
+	_log "DEBUG: ULDLCHECK: $ULDLCHECK"
+	_log "DEBUG: ULDLRATE: $ULDLRATE"
 	# List all PlugIns
 	_log "DEBUG: PlugIns found in /etc/autoshutdown.d:"
 	for ASD_plugin_firstcheck in /etc/autoshutdown.d/*; do

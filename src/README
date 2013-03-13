@@ -82,6 +82,15 @@ e.g.:
 192.168.1.45
 If this expert-setting is used, the IPs specified in "RANGE" or in GUI doesn't work
 
+ULDLCHEC
+set it to "true" for a network-traffic check in autoshutdown. Then don't forget to set ULDLRATE also!
+
+ULDLRATE
+define the network traffic in kB/s
+in each cycle autoshutdown checks whether the network-traffic (upload or download) is over the set value
+under this value, no shutdown
+over this value, your PC shuts down
+
 PLUGINCHECK
 Set this to true, if autoshutdown.sh checks for PlugIns in /etc/autoshutdown.d
 set it to "false" (or uncemmented) to skip the check
