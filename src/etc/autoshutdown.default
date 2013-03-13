@@ -117,8 +117,8 @@ VERBOSE="false"			# use the verbose mode, with additional output on the command 
 #ULDLRATE=20
 # define the network traffic in kB/s
 # in each cycle autoshutdown checks whether the network-traffic (upload or download) is over the set value
-# under this value, no shutdown
-# over this value, your PC shuts down
+# over this value, no shutdown -> new check after x seconds
+# under this value, your PC shuts down, if all other checks are negative, too
 
 # ----------------------------------------------------------------------------------------
 
