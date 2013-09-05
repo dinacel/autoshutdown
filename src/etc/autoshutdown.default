@@ -137,6 +137,8 @@ VERBOSE="false"
 
 # ----------------------------------------------------------------------------------------
 
+#PLUGINCHECK="true"
 # PlugIns:
+# see Readme
 # You find sample plugins in /etc/autoshutdown.d
 # see README

@@ -581,14 +581,8 @@ _check_net_status()
 _check_ul_dl_rate()
 {
 	NICNR_ULDLCHECK="$1"
-	RXTXTMPDIR="/tmp/autoshutdown_tx_rx"
-
-	if [ ! -d $RXTXTMPDIR ]; then
-		if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): creating tmpdir: $RXTXTMPDIR"; fi
-		mkdir $RXTXTMPDIR && _log "DEBUG: _check_ul_dl_rate(): $RXTXTMPDIR created successfully"
-	else
-		if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): tmpdir: $RXTXTMPDIR exists"; fi
-	fi
+	
+	# creation of the directory is in the main script
 
 	_log "INFO: ULDL-Traffic-Check for '${NIC[${NICNR_ULDLCHECK}]}'"
 
@@ -598,21 +592,24 @@ _check_ul_dl_rate()
 	# TX in kB
 	TX=$(ifconfig ${NIC[${NICNR_ULDLCHECK}]} |grep bytes | awk '{print $6}' | sed 's/bytes://g' | awk '{ printf("%.0f\n", ($1/1024)) }')
 
-	if $DEBUG; then _log "DEBUG: _check_ul_dl(): RX: $RX --- TX: $TX"; fi
-
 	# Check if RX/TX Files Exist
 	if [ -f $RXTXTMPDIR/rx.tmp ] && [ -f $RXTXTMPDIR/tx.tmp ]; then
 		if $DEBUG; then _log "DEBUG: _check_ul_dl(): rx.tmp and tx.tmp are existing"; fi
 		p_RX=$(cat $RXTXTMPDIR/rx.tmp) ## store previous RX value in p_RX
 		p_TX=$(cat $RXTXTMPDIR/tx.tmp) ## store previous TX value in p_TX
 
-		if $DEBUG; then _log "DEBUG: _check_ul_dl(): p_RX: $p_RX --- p_TX: $p_TX"; fi
-
 		echo $RX > $RXTXTMPDIR/rx.tmp ## Write new packets to RX file
 		echo $TX > $RXTXTMPDIR/tx.tmp ## Write new packets to TX file
 
+		if $DEBUG; then
+			_log "DEBUG: _check_ul_dl(): actual     RX: $RX"
+			_log "DEBUG: _check_ul_dl(): previous p_RX: $p_RX"
+			_log "DEBUG: _check_ul_dl(): actual     TX: $TX"
+			_log "DEBUG: _check_ul_dl(): previous p_TX: $p_TX"
+		fi
+
 		# Calculate threshold limit
-		let ULDLINCREASE=$ULDLRATE*60*$SLEEP
+		let ULDLINCREASE=$ULDLRATE*$SLEEP
 		if $DEBUG; then _log "DEBUG: _check_ul_dl(): ULDLINCREASE: $ULDLINCREASE"; fi
 
 		t_RX=$(expr $p_RX + $ULDLINCREASE)
@@ -622,16 +619,7 @@ _check_ul_dl_rate()
 		diff_RX=$(expr $RX - $p_RX)
 		diff_TX=$(expr $TX - $p_TX)
 
-		if $DEBUG; then
-			_log "DEBUG: _check_ul_dl(): t_RX: $t_RX --- t_TX: $t_TX"
-			_log "DEBUG: _check_ul_dl(): diff_RX: $diff_RX --- diff_TX: $diff_TX"
-		fi
-
-# test
-		#echo $diff_RX $SLEEP | awk '{ printf("%.1f\n", ($1/1024) ) }'
-		#echo $diff_TX $SLEEP | awk '{ printf("%.1f\n", ($1/1024/$2) ) }'
-
-		# Calculate dl/ul-rate in kB/s - format xx.x
+		# Calculate dl/ul-rate in kB/s - format xx.x		
 		LAST_DL_RATE=$(echo $diff_RX $SLEEP | awk '{ printf("%.1f\n", ($1/$2) ) }')
 		LAST_UL_RATE=$(echo $diff_TX $SLEEP | awk '{ printf("%.1f\n", ($1/$2) ) }')
 
@@ -639,11 +627,21 @@ _check_ul_dl_rate()
 		_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL-Rate over the last $SLEEP seconds: $LAST_UL_RATE kB/s"
 
 		# If network bytes have not increased over given value
-		if [ $RX -le $t_RX ] && [ $TX -le $t_TX ]; then
-			_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is under $ULDLRATE kB/s"
+		if $DEBUG; then
+			_log "DEBUG: _check_ul_dl(): SLEEP: $SLEEP"
+			_log "DEBUG: _check_ul_dl(): t_RX: $t_RX"
+			_log "DEBUG: _check_ul_dl(): diff_RX: $diff_RX"
+			_log "DEBUG: _check_ul_dl(): t_TX: $t_TX"
+			_log "DEBUG: _check_ul_dl(): diff_TX: $diff_TX"
+			_log "DEBUG: _check_ul_dl(): check: RX:$RX -le t_RX:$t_RX"
+			_log "DEBUG: _check_ul_dl(): check: TX:$TX -le t_TX:$t_TX"
+		fi
+		
+		if [ $RX -le $t_RX -a $TX -le $t_TX ]; then
+			_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is under $ULDLRATE kB/s -> next check"
 			return 1 # return value -> shutdown
 		else
-			_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is over $ULDLRATE kB/s -> no shutdown"
+			_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- or DL-Rate is over $ULDLRATE kB/s -> no shutdown"
 			return 0
 		fi # > if [ $RX -le $t_RX ] && [ $TX -le $t_TX ]; then
 
@@ -827,6 +825,9 @@ _check_config() {
 					_log "WARN: exiting ..."
 					exit 1; }
 	fi
+
+# test
+TEMPPROCNAMES="-"
 
 	if  [ "$TEMPPROCNAMES" = "-" ]; then
 			_log "INFO: TEMPPROCNAMES is disabled - No processes being checked"
@@ -1283,15 +1284,15 @@ if $DEBUG ; then
 	_log "DEBUG: LOADPROCNAMES: $LOADPROCNAMES"
 	_log "DEBUG: NSOCKETNUMBERS: $NSOCKETNUMBERS"
 	_log "DEBUG: TEMPPROCNAMES: $TEMPPROCNAMES"
-	_log "DEBUG: STATUSFILECHECK: $STATUSFILECHECK"
-	_log "DEBUG: STATUSFILEDIR: $STATUSFILEDIR"
+# 	_log "DEBUG: STATUSFILECHECK: $STATUSFILECHECK"
+# 	_log "DEBUG: STATUSFILEDIR: $STATUSFILEDIR"
 	_log "DEBUG: VERBOSE: $VERBOSE"
 	_log "DEBUG: FAKE: $FAKE"
 	_log "DEBUG: SHUTDOWNCOMMAND: $SHUTDOWNCOMMAND"
 	_log "DEBUG: NETSTATWORD: $NETSTATWORD"
-	_log "DEBUG: SABNZBDCHECK: $SABNZBDCHECK"
-	_log "DEBUG: SABPORT: $SABPORT"
-	_log "DEBUG: SABAPIKEY: $SABAPIKEY"
+# 	_log "DEBUG: SABNZBDCHECK: $SABNZBDCHECK"
+# 	_log "DEBUG: SABPORT: $SABPORT"
+# 	_log "DEBUG: SABAPIKEY: $SABAPIKEY"
 	_log "DEBUG: PLUGINCHECK: $PLUGINCHECK"
 	_log "DEBUG: ULDLCHECK: $ULDLCHECK"
 	_log "DEBUG: ULDLRATE: $ULDLRATE"
@@ -1306,6 +1307,24 @@ fi   # > if $DEBUG ;then
 
 _log "INFO:---------------- script started ----------------------"
 _log "INFO: ${CYCLES} test cycles until shutdown is issued."
+
+# Creation of the dir for ULDLCHECK
+RXTXTMPDIR="/tmp/autoshutdown_tx_rx"
+if [ "$ULDLCHECK" = "true" ]; then
+	if [ ! -d $RXTXTMPDIR ]; then
+			if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): creating tmpdir: $RXTXTMPDIR"; fi
+			mkdir $RXTXTMPDIR && _log "DEBUG: _check_ul_dl_rate(): $RXTXTMPDIR created successfully"
+		else
+			if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): tmpdir: $RXTXTMPDIR exists"; fi
+	fi
+	# clearing for the first run of ULDLCHECK
+	if [ -f $RXTXTMPDIR/tx.tmp ]; then
+		rm $RXTXTMPDIR/tx.tmp && if $DEBUG; then _log "DEBUG: $RXTXTMPDIR/tx.tmp deleted @ start of script"; fi
+	fi
+	if [ -f $RXTXTMPDIR/rx.tmp ]; then
+		rm $RXTXTMPDIR/rx.tmp && if $DEBUG; then _log "DEBUG: $RXTXTMPDIR/rx.tmp deleted @ start of script"; fi
+	fi
+fi
 
 if [ "$FAKE" = "true" ]; then
 	_log "INFO: FAKE-Mode in on, dont't wait for first check"
