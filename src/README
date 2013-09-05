@@ -1,6 +1,6 @@
 Autoshutdown-Script for OMV, Debian and Ubuntu:
 -----------------------------------------------
-Version 0.3.5.0
+Version 0.3.9.1
 
 Bugs and feature-requests:
 https://sourceforge.net/apps/phpbb/openmediavault/viewtopic.php?f=5&t=571&start=0
@@ -8,8 +8,7 @@ English is not my native language, i hope you understand it anyway.
 
 Automatic install in OMV:
 ------------------
-install the autoshutdown-plugin from stable repository: http://packages.omv-plugins.org/
-
+install the autoshutdown-plugin from #insert REPO here, if its ready
 
 Automatic install in Debian/Ubuntu:
 ------------------
@@ -26,6 +25,37 @@ then setup the config-file and do a
     sudo chmod +x autoshutdown.sh
 
 The script should run now. To start it @ boot, see http://www.debian-administration.org/articles/28
+
+Setting in autoshutdown.conf
+
+FAKE
+set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
+This is also possible through a switch in OMV-GUI. Setting it to "false" or if it is not set, the script will run normally.
+With Fake-Mode ON, the script doesn't sleep 5 minutes after it starts.
+
+ULDLCHECK
+set it to "true" for a network-traffic check in autoshutdown. Then don't forget to set ULDLRATE also!
+
+ULDLRATE
+define the network traffic in kB/s
+in each cycle autoshutdown checks whether the network-traffic (upload or download) is over the set value
+under this value, no shutdown
+over this value, your PC shuts down
+
+LOADAVERAGECHECK
+set it to "true" for a check of loadaverage over the last minute in autoshutdown. If the system is over this value, then no shutdown is issued.
+If you set this to "true", don't forget to set LOADAVERAGE also!
+
+LOADAVERAGE
+Set this to the target loadaverage for autoshutdown.
+Make sure you leave the leading zeros and the dot out of the value!
+	Example:
+	LOADAVERAGE=50   # means a loadaverage of 0.50
+	LOADAVERAGE=8    # means a loadaverage of 0.08
+	LOADAVERAGE=220  # means a loadaverage of 2.20
+	and so on ...
+
+For the others, please have a look at the explanations in the autoshutdown.conf
 
 #########################################################################
 Expert Settings in autoshutdown.conf:
@@ -70,26 +100,12 @@ For more information and how to set up hibernate and suspend, look here:
 http://wiki.debian.org/Suspend
 http://wiki.debian.org/Hibernation
 
-FAKE
-set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
-This is also possible through a switch in OMV-GUI. Setting it to "false" or if it is not set, the script will run normally.
-With Fake-Mode ON, the script doesn't sleep 5 minutes after it starts.
-
 PINGLIST
 With this, you can define a path to a file, which contains list of IPs that should be scanned
 only one IP per line is allowed - Format: mmm.nnn.ooo.ppp
 e.g.:
 192.168.1.45
 If this expert-setting is used, the IPs specified in "RANGE" or in GUI doesn't work
-
-ULDLCHEC
-set it to "true" for a network-traffic check in autoshutdown. Then don't forget to set ULDLRATE also!
-
-ULDLRATE
-define the network traffic in kB/s
-in each cycle autoshutdown checks whether the network-traffic (upload or download) is over the set value
-under this value, no shutdown
-over this value, your PC shuts down
 
 PLUGINCHECK
 Set this to true, if autoshutdown.sh checks for PlugIns in /etc/autoshutdown.d

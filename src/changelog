@@ -60,7 +60,7 @@ Changelog:
 
 2012/May/05		0.3.3.2	: Internal Test-version
 
-2012/May/05		0.3.3.3	: New Option: NW_INTENSESEARCH for PCs which need longer to get IP-address
+2012/May/05		0.3.3.3	: New Option: NW_INTENSESEARCH for PCs which need longer to get IP-address (Edit: option always on with 0.3.4.2)
 
 2012/Nov/17		0.3.4.0	: Added support for sabnzbd
 
@@ -76,3 +76,11 @@ Changelog:
 						: added /etc/pm/sleep.d/autoshutdown-restart - this script restarts autoshutdown after hibernate/suspend
 
 2013/Mar/13		0.3.5.0	: added network traffic check
+
+2013/Mar/18		0.3.5.1	: added restart-script in /etc/pm/power.d
+
+2013/Mar/19		0.3.5.2	: added loadaverage-check
+
+2013/Sep/05		0.3.9.1	: $FLAG changed to $CYCLES for better understanding
+						: code cleanup
+						: removed sabnzbd-function, use ULDLRATE instead!

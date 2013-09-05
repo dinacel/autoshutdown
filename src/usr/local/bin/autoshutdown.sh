@@ -31,9 +31,10 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# Put the file "autoshutdownlog.conf" in /etc/rsyslog.d/
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.5.0"         # script version information
-CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line (default="-d 1") - for Debian/Ubuntu: "-d 1 -n 1"
-STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  (default="-I $CTOPPARAM") - for Debian/Ubuntu: "-i $CTOPPARAM"
+VERSION="0.3.9.1"         # script version information
+#CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line "-d 1 -n 1" (Debian/Ubuntu)
+CTOPPARAM="-b -d 1 -n 1"         # define common parameters for the top command line "-b -d 1 -n 1" (Debian/Ubuntu)
+STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  "-i $CTOPPARAM" (Debian/Ubuntu)
 
 ######## FUNCTION DECLARATION ########
 
@@ -56,8 +57,6 @@ _log()
 				LOGMESSAGE="${BASH_REMATCH[1]}[$$]: $PRIORITY: '$LOGMESSAGE'";
 			fi;
 		}
-
-	#echo "$LOGMESSAGE"
 
 	if $VERBOSE||$FAKE; then echo "$(date '+%b %e %H:%M:%S'): $USER: $FACILITY $LOGMESSAGE"; fi
 
@@ -155,7 +154,7 @@ _shutdown()
 {
    # Goodbye and thanks for all the fish!!
    # We've had no responses for the required number of consecutive scans
-   # defined in FLAG shutdown & power off.
+   # defined in CYCLES shutdown & power off.
 
 	if [ -z "$SHUTDOWNCOMMAND" ]; then
 		SHUTDOWNCOMMAND="shutdown -h now"
@@ -328,6 +327,7 @@ _check_processes()
 #
 # With this plugin-system everyone can check if a specific file exists.
 # If it exists, the machine won't shutdown
+# You find sample plugins in /etc/autoshutdown.d
 #
 _check_plugin()
 {
@@ -344,7 +344,7 @@ _check_plugin()
 		PLUGIN_content[$ASD_pluginNR]="$(egrep 'content=' $ASD_plugin | sed 's/content=//g; s/"//g')"
 
 		if $DEBUG; then
-			_log "DEBUG: -----------------------------------------__"
+			_log "DEBUG: -------------------------------------------"
 			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: ASD_PLUGIN-file: $ASD_plugin"
 			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_name[$ASD_pluginNR]: ${PLUGIN_name[$ASD_pluginNR]}"
 			_log "DEBUG: _check_plugin(): PlugIn: ${PLUGIN_name[$ASD_pluginNR]}: PLUGIN_folder[$ASD_pluginNR]: ${PLUGIN_folder[$ASD_pluginNR]}"
@@ -396,46 +396,90 @@ _check_plugin()
 
 ################################################################
 #
-#   name         : _check_sabnzbd
+#   name         : _check_loadaverage
 #   parameter      : none
 #   global return   : none
-#   return         : 1      : if sabnzdb is downloading
-#               : 0      : if sabnzdb is not downloading -> ready to shutdown
+#   return         : 1      : if loadaverage is higher (greater) than $LOADAVERAGE
+#               : 0      : if loadaverage is lower (less) than $LOADAVERAGE
 #
-# This script checks sabnzbd to see if sabnzbd is currently downloading through the API
-# Original script here: https://forums.sabnzbd.org/viewtopic.php?t=5462#p39170
+# This script checks if the loadaverage is higher than $LOADAVERAGE over the last 1 minute
+# if yes -> no shutdown, next cycle
+# if no -> next check and shutdown if all cycles failed
 #
-_check_sabnzbd()
+_check_loadaverage()
 {
 	RVALUE=1
-	NICNR_SABRANGE="$1"
-	NOTRAFFIC="0.00"
+	CURRENT_LOADAVERAGE_TEMP1="$(top -b -n 1 | grep 'load average')"
+	CURRENT_LOADAVERAGE_TEMP2="$(echo $CURRENT_LOADAVERAGE_TEMP1 | awk '{print $11}' | sed 's/,//g')"
+	if [ "$CURRENT_LOADAVERAGE_TEMP2" = "0.00" ]; then
+		CURRENT_LOADAVERAGE=0
+	else
+		CURRENT_LOADAVERAGE=$(echo $CURRENT_LOADAVERAGE_TEMP2 | sed 's/[,.]//g' | sed 's/^0*//g')
+	fi
 
 	if $DEBUG; then
-		_log "DEBUG: _check_sabnzbd(): Check for ${NIC[$NICNR_SABRANGE]} - ${CLASS[$NICNR_SABRANGE]}.${SERVERIP[$NICNR_SABRANGE]}"
-		_log "DEBUG: _check_sabnzbd(): SABPORT: $SABPORT"
-		_log "DEBUG: _check_sabnzbd(): SABAPIKEY: $SABAPIKEY"
-		_log "DEBUG: _check_sabnzbd(): NOTRAFFIC: $NOTRAFFIC"
-	fi
-
-	# Output to std-out, Timeout 5 sec (-T), retries 1 (-t)
-	SABTRAFFIC="$(wget -q -t 1 -T 5 "http://${CLIENTIP}:${SABPORT}/sabnzbd/api?mode=qstatus&output=xml&apikey=${SABAPIKEY}"  -O - | xmlstarlet sel -t -v qstatus/kbpersec 2&> /dev/null)"
-
-	if $DEBUG; then _log "DEBUG: _check_sabnzbd(): SABTRAFFIC: $SABTRAFFIC"; fi
-
-	if [ -z $SABTRAFFIC ]; then
-		_log "INFO: _check_sabnzbd(): couldn't find actual sabnzbd-traffic. Is sabnzbd running?"
-	elif [ "$SABTRAFFIC" = "$NOTRAFFIC" ]; then
-		_log "INFO: _check_sabnzbd(): no running downloads."
-	else
-		_log "INFO: Sabnzbd: download runniing with $SABTRAFFIC kb/s  - no shutdown."
-		let RVALUE--
+		_log "DEBUG: -------------------------------------------"
+		_log "DEBUG: _check_loadaverage(): Output of: 'top -b -n 1 | grep 'load average'"
+		_log "DEBUG: _check_loadaverage(): '$CURRENT_LOADAVERAGE_TEMP1'"
+		_log "DEBUG: _check_loadaverage(): CURRENT_LOADAVERAGE_TEMP2: $CURRENT_LOADAVERAGE_TEMP2"
+		_log "DEBUG: _check_loadaverage(): CURRENT_LOADAVERAGE: $CURRENT_LOADAVERAGE"
 	fi
 	
-	if $DEBUG ; then _log "DEBUG: _check_sabnzbd(): RVALUE: $RVALUE" ; fi
+	if [ $CURRENT_LOADAVERAGE -gt $LOADAVERAGE ]; then
+		_log "INFO: Loadaverage ($CURRENT_LOADAVERAGE_TEMP2 -> $CURRENT_LOADAVERAGE) is higher than target ($LOADAVERAGE) - no shutdown"
+		let RVALUE--
+	else
+		_log "INFO: Loadaverage ($CURRENT_LOADAVERAGE_TEMP2 -> $CURRENT_LOADAVERAGE) is lower than target ($LOADAVERAGE)"
+	fi
+
+	if $DEBUG ; then _log "DEBUG: _check_loadaverage(): RVALUE: $RVALUE" ; fi
 
 	return ${RVALUE}
 }
+
+
+# ################################################################
+# #
+# #   name         : _check_sabnzbd
+# #   parameter      : none
+# #   global return   : none
+# #   return         : 1      : if sabnzdb is downloading
+# #               : 0      : if sabnzdb is not downloading -> ready to shutdown
+# #
+# # This function checks sabnzbd to see if sabnzbd is currently downloading through the API
+# # Original script here: https://forums.sabnzbd.org/viewtopic.php?t=5462#p39170
+# #
+# _check_sabnzbd()
+# {
+# 	RVALUE=1
+# 	NICNR_SABRANGE="$1"
+# 	NOTRAFFIC="0.00"
+# 
+# 	if $DEBUG; then
+# 		_log "DEBUG: _check_sabnzbd(): Check for ${NIC[$NICNR_SABRANGE]} - ${CLASS[$NICNR_SABRANGE]}.${SERVERIP[$NICNR_SABRANGE]}"
+# 		_log "DEBUG: _check_sabnzbd(): SABPORT: $SABPORT"
+# 		_log "DEBUG: _check_sabnzbd(): SABAPIKEY: $SABAPIKEY"
+# 		_log "DEBUG: _check_sabnzbd(): NOTRAFFIC: $NOTRAFFIC"
+# 	fi
+# 
+# 	# Output to std-out, Timeout 5 sec (-T), retries 1 (-t)
+# 	SABTRAFFIC="$(wget -q -t 1 -T 5 "http://${CLIENTIP}:${SABPORT}/sabnzbd/api?mode=qstatus&output=xml&apikey=${SABAPIKEY}"  -O - | xmlstarlet sel -t -v qstatus/kbpersec 2&> /dev/null)"
+# 
+# 	if $DEBUG; then _log "DEBUG: _check_sabnzbd(): SABTRAFFIC: $SABTRAFFIC"; fi
+# 
+# 	if [ -z $SABTRAFFIC ]; then
+# 		_log "INFO: _check_sabnzbd(): couldn't find actual sabnzbd-traffic. Is sabnzbd running?"
+# 	elif [ "$SABTRAFFIC" = "$NOTRAFFIC" ]; then
+# 		_log "INFO: _check_sabnzbd(): no running downloads."
+# 	else
+# 		_log "INFO: Sabnzbd: download runniing with $SABTRAFFIC kb/s  - no shutdown."
+# 		let RVALUE--
+# 	fi
+# 	
+# 	if $DEBUG ; then _log "DEBUG: _check_sabnzbd(): RVALUE: $RVALUE" ; fi
+# 
+# 	return ${RVALUE}
+# }
 
 ################################################################
 #
@@ -541,15 +585,12 @@ _check_ul_dl_rate()
 
 	if [ ! -d $RXTXTMPDIR ]; then
 		if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): creating tmpdir: $RXTXTMPDIR"; fi
-		mkdir $RXTXTMPDIR
+		mkdir $RXTXTMPDIR && _log "DEBUG: _check_ul_dl_rate(): $RXTXTMPDIR created successfully"
 	else
 		if $DEBUG ; then _log "DEBUG: _check_ul_dl_rate(): tmpdir: $RXTXTMPDIR exists"; fi
 	fi
 
-	_log "INFO: Traffic-Check for '${NIC[${NICNR_ULDLCHECK}]}'"
-
-	# set upload/download-Rate in kB/s
-	ULDLRATE=20
+	_log "INFO: ULDL-Traffic-Check for '${NIC[${NICNR_ULDLCHECK}]}'"
 
 	# RX in kB
 	RX=$(ifconfig ${NIC[${NICNR_ULDLCHECK}]} |grep bytes | awk '{print $2}' | sed 's/bytes://g' | awk '{ printf("%.0f\n", ($1/1024)) }')
@@ -599,15 +640,11 @@ _check_ul_dl_rate()
 
 		# If network bytes have not increased over given value
 		if [ $RX -le $t_RX ] && [ $TX -le $t_TX ]; then
-
-		_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is under $ULDLRATE kB/s"
-
-		return 1 # return value -> shutdown
-
+			_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is under $ULDLRATE kB/s"
+			return 1 # return value -> shutdown
 		else
 			_log "INFO: ${NIC[${NICNR_ULDLCHECK}]}: UL- and DL-Rate is over $ULDLRATE kB/s -> no shutdown"
-
-		return 0
+			return 0
 		fi # > if [ $RX -le $t_RX ] && [ $TX -le $t_TX ]; then
 
 	# RX/TX-Files doesn't Exist
@@ -749,11 +786,11 @@ _check_config() {
 			CHECKCLOCKACTIVE="false"; }
 
 	# Flag: 1 - 999 (cycles)
-	[[ "$FLAG" =~ ^([1-9]|[1-9][0-9]|[1-9][0-9]{2})$ ]] || {
+	[[ "$CYCLES" =~ ^([1-9]|[1-9][0-9]|[1-9][0-9]{2})$ ]] || {
 			_log "WARN: Invalid parameter format: Flag"
-			_log "WARN: You set it to '$FLAG', which is not a correct syntax. Only '1' - '999' is allowed."
-			_log "WARN: Setting FLAG to 5"
-			FLAG="5"; }
+			_log "WARN: You set it to '$CYCLES', which is not a correct syntax. Only '1' - '999' is allowed."
+			_log "WARN: Setting CYCLES to 5"
+			CYCLES="5"; }
 
 	[[ "$UPHOURS" =~ ^(([0-1]?[0-9]|[2][0-3])\.{2}([0-1]?[0-9]|[2][0-3]))$ ]] || {
 			_log "WARN: Invalid parameter list format: UPHOURS [hour1..hour2]"
@@ -837,43 +874,43 @@ _check_config() {
 			_log "WARN: Setting SLEEP to 180 sec"
 			SLEEP=180; }
 
-	# $SABNZBDCHECK" = "true"
-	if [ ! -z "$SABNZBDCHECK" ]; then
-		[[ "$SABNZBDCHECK" = "true" || "$SABNZBDCHECK" = "false" ]] || { _log "WARN: SABNZBDCHECK not set properly. It has to be 'true' or 'false'."
-				_log "WARN: Set SABNZBDCHECK to false"
-				SABNZBDCHECK="false"; }
-	fi
-
-	# SABPORT (max 5 digits)
-	[[ "$SABPORT" =~ ^([1-9]|[1-9][0-9]{1,4})$ ]] || {
-		if [ "$SABNZBDCHECK" = "true" ]; then
-			_log "WARN: Invalid parameter format: SABPORT"
-			_log "WARN: You set it to '$SABPORT', which is not a correct syntax. Maybe it's empty?"
-			if [ "$SABNZBDCHECK" = "true" ]; then
-				_log "WARN: Set SABNZBDCHECK to false, because of invalid portnumber"
-				SABNZBDCHECK="false"
-			fi
-		fi; }
-
-	# APIKEY
-	REGEX="^([A-Za-z0-9]{1,})"
-	if [ "$SABNZBDCHECK" = "true" ]; then
-		if [ "$SABAPIKEY" = "" ]; then
-				_log "WARN: APIKEY for sabnzbd is not set"
-				if [ "$SABNZBDCHECK" = "true" ]; then
-					_log "WARN: Set SABNZBDCHECK to false, because of missing APIKEY."
-					SABNZBDCHECK="false"
-				fi
-		else
-				[[ "$SABAPIKEY" =~ $REGEX ]] || {
-						_log "WARN: Invalid APIKEY"
-						_log "WARN: You set it to '$SABAPIKEY', which is not a correct syntax. Only a-zA-Z0-9 is allowed."
-						if [ "$SABNZBDCHECK" = "true" ]; then
-							_log "WARN: Set SABNZBDCHECK to false, because of invalid APIKEY"
-							SABNZBDCHECK="false"
-						fi; }
-		fi
-	fi
+# 	# $SABNZBDCHECK" = "true"
+# 	if [ ! -z "$SABNZBDCHECK" ]; then
+# 		[[ "$SABNZBDCHECK" = "true" || "$SABNZBDCHECK" = "false" ]] || { _log "WARN: SABNZBDCHECK not set properly. It has to be 'true' or 'false'."
+# 				_log "WARN: Set SABNZBDCHECK to false"
+# 				SABNZBDCHECK="false"; }
+# 	fi
+# 
+# 	# SABPORT (max 5 digits)
+# 	[[ "$SABPORT" =~ ^([1-9]|[1-9][0-9]{1,4})$ ]] || {
+# 		if [ "$SABNZBDCHECK" = "true" ]; then
+# 			_log "WARN: Invalid parameter format: SABPORT"
+# 			_log "WARN: You set it to '$SABPORT', which is not a correct syntax. Maybe it's empty?"
+# 			if [ "$SABNZBDCHECK" = "true" ]; then
+# 				_log "WARN: Set SABNZBDCHECK to false, because of invalid portnumber"
+# 				SABNZBDCHECK="false"
+# 			fi
+# 		fi; }
+# 
+# 	# APIKEY
+# 	REGEX="^([A-Za-z0-9]{1,})"
+# 	if [ "$SABNZBDCHECK" = "true" ]; then
+# 		if [ "$SABAPIKEY" = "" ]; then
+# 				_log "WARN: APIKEY for sabnzbd is not set"
+# 				if [ "$SABNZBDCHECK" = "true" ]; then
+# 					_log "WARN: Set SABNZBDCHECK to false, because of missing APIKEY."
+# 					SABNZBDCHECK="false"
+# 				fi
+# 		else
+# 				[[ "$SABAPIKEY" =~ $REGEX ]] || {
+# 						_log "WARN: Invalid APIKEY"
+# 						_log "WARN: You set it to '$SABAPIKEY', which is not a correct syntax. Only a-zA-Z0-9 is allowed."
+# 						if [ "$SABNZBDCHECK" = "true" ]; then
+# 							_log "WARN: Set SABNZBDCHECK to false, because of invalid APIKEY"
+# 							SABNZBDCHECK="false"
+# 						fi; }
+# 		fi
+# 	fi
 
 	# $ULDLCHECK" = "true"
 	if [ ! -z "$ULDLCHECK" ]; then
@@ -883,15 +920,54 @@ _check_config() {
 	fi
 
 	# ULDLRATE (max 6 digits -> 1 - 999999 kB/s)
-	[[ "$ULDLRATE" =~ ^([1-9]|[1-9][0-9]{1,5})$ ]] || {
-		if [ "$ULDLRATE" = "true" ]; then
+	if [ "$ULDLCHECK" = "true" ]; then
+		[[ "$ULDLRATE" =~ ^([1-9]|[1-9][0-9]{1,5})$ ]] || {
 			_log "WARN: Invalid parameter format: ULDLRATE"
 			_log "WARN: You set it to '$ULDLRATE', which is not a correct syntax. Maybe it's empty?"
-			if [ "$ULDLCHECK" = "true" ]; then
-				_log "WARN: Set ULDLCHECK to false, because of invalid UL-DL-rate"
-				ULDLCHECK="false"
-			fi
-		fi; }
+			_log "WARN: Set ULDLRATE to 50"
+			ULDLRATE=50; }
+	else
+		_log "WARN: ULDLCHECK is set to false"
+		_log "WARN: Ignoring ULDLRATE"
+	fi
+
+	# SHUTDOWNCOMMAND - check acpi power states with pm-is-supported
+	# if SHUTDOWNCOMMAND is set
+	# Thx to http://wiki.ubuntuusers.de/pm-utils
+	if [ ! -z $SHUTDOWNCOMMAND ]; then
+		# check, if pm-utils is installed
+		if ! which pm-is-supported 1>/dev/null; then
+			_log "WARN: SHUTDOWNCOMMAND is set, but pm-is-supported not found"
+			_log "WARN: Please install the package pm-utils!"
+			_log "WARN: Unset SHUTDOWNCOMMAND -> do normal shutdown"
+			unset $SHUTDOWNCOMMAND
+		else
+			# check POWER MANAGEMENT MODES
+			_log "INFO: Your Kernel supports the following modes from pm-utils:"
+			pm-is-supported --suspend         && _log "INFO: Kernel supports SUSPEND (SUSPEND to RAM)"
+			pm-is-supported --hibernate       && _log "INFO: Kernel supports HIBERNATE (SUSPEND to DISK)"
+			pm-is-supported --suspend-hybrid  && _log "INFO: Kernel supports HYBRID-SUSPEND (to DISK & to RAM)"
+		fi
+	fi
+
+	# LOADAVERAGECHECK = "true"
+	if [ ! -z "$LOADAVERAGECHECK" ]; then
+		[[ "$LOADAVERAGECHECK" = "true" || "$LOADAVERAGECHECK" = "false" ]] || { _log "WARN: LOADAVERAGECHECK not set properly. It has to be 'true' or 'false'."
+				_log "WARN: Set LOADAVERAGECHECK to false"
+				LOADAVERAGECHECK="false"; }
+	fi
+
+	# LOADAVERAGE (max 3 digits)
+	if [ "$LOADAVERAGECHECK" = "true" ]; then
+		[[ "$LOADAVERAGE" =~ ^([1-9]|[1-9][0-9]{1,2})$ ]] || {
+			_log "WARN: Invalid parameter format: LOADAVERAGE"
+			_log "WARN: You set it to '$LOADAVERAGE', which is not a correct syntax. Maybe it's empty?"
+			_log "WARN: Set LOADAVERAGECHECK to 20 (0.20)"
+			LOADAVERAGE=20; }
+	else
+		_log "WARN: LOADAVERAGECHECK is set to false"
+		_log "WARN: Ignoring LOADAVERAGE"
+	fi
 
 }
 
@@ -938,13 +1014,16 @@ _check_networkconfig() {
 
 			if $DEBUG; then
 				# ifconfig in extra variables for easier debugging
-				ifconfig_DEBUG="$(ifconfig $NWADAPTERS)"
 				IPFROMIFCONFIG_DEBUG_1="$(ifconfig $NWADAPTERS | egrep "inet ")"
 				IPFROMIFCONFIG_DEBUG_2="$(ifconfig $NWADAPTERS | egrep "inet " | sed 's/[ ]*Bcast.*//g')"
 				# Log-Output all the stuff
-				_log "DEBUG: ifconfig $NWADAPTERS (Begin) -------------------"
-				_log "DEBUG: $ifconfig_DEBUG"
-				_log "DEBUG: ifconfig $NWADAPTERS (End) ---------------------"
+				_log "DEBUG: ifconfig $NWADAPTERS (Begin) ====================================="
+				# Output of ifconfig line for line
+				ifconfig $NWADAPTERS | while read IFCONFIGLINE
+				do
+					_log "DEBUG:           $IFCONFIGLINE"
+				done
+				_log "DEBUG: ifconfig $NWADAPTERS (End) ======================================="
 				_log "DEBUG: IPFROMIFCONFIG_DEBUG_1: $IPFROMIFCONFIG_DEBUG_1"
 				_log "DEBUG: IPFROMIFCONFIG_DEBUG_2: $IPFROMIFCONFIG_DEBUG_2"
 				_log "DEBUG: _check_networkconfig(): IPFROMIFCONFIG$NICNR: ${IPFROMIFCONFIG[$NICNR]}"
@@ -1034,9 +1113,14 @@ _check_system_active()
 			if $DEBUG; then _log "DEBUG: _check_system_active() is running - NICNR_CHECKSYSTEMACTIVE: $NICNR_CHECKSYSTEMACTIVE"; fi
 
 # _check_ul_dl_rate $NICNR_CHECKSYSTEMACTIVE
-# 
+#
 # echo "script ended for testing"
 # exit 42
+
+#  _check_loadaverage
+# 
+#  echo "script ended for testing"
+#  exit 42
 
 			if [ $CNT -eq 0 ]; then
 				## PRIO 1: Ping each IP address in parameter list. if we find one -> CNT != 0 we'll
@@ -1081,22 +1165,22 @@ _check_system_active()
 				if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_ul_dl_rate not called -> CNT: $CNT "; fi
 			fi   # > if[ $CNT -eq 0 ]; then
 
-			if [ $CNT -eq 0 ]; then
-				# PRIO 4: Sabnzbd-traffic-checked
-				# Do a check for sabnzbd-downloading
-				# I've put it here, because every NIC should be checked for sabnzbd-activity
-				if [ "$SABNZBDCHECK" = "true" ] ; then
-					_check_sabnzbd $NICNR_CHECKSYSTEMACTIVE &&
-					{
-					let CNT++
-					}
-
-					if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_sabnzbd -> CNT: $CNT "; fi
-
-				fi
-			else
-				if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_sabnzbd not called -> CNT: $CNT "; fi
-			fi   # > if[ $CNT -eq 0 ]; then
+# 			if [ $CNT -eq 0 ]; then
+# 				# PRIO 4: Sabnzbd-traffic-checked
+# 				# Do a check for sabnzbd-downloading
+# 				# I've put it here, because every NIC should be checked for sabnzbd-activity
+# 				if [ "$SABNZBDCHECK" = "true" ] ; then
+# 					_check_sabnzbd $NICNR_CHECKSYSTEMACTIVE &&
+# 					{
+# 					let CNT++
+# 					}
+# 
+# 					if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_sabnzbd -> CNT: $CNT "; fi
+# 
+# 				fi
+# 			else
+# 				if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_sabnzbd not called -> CNT: $CNT "; fi
+# 			fi   # > if[ $CNT -eq 0 ]; then
 
 		fi # >  if [ ! -z "${NIC[$NICNR_CHECKSYSTEMACTIVE]}" ]; then
 
@@ -1127,6 +1211,20 @@ _check_system_active()
 		fi
 	else
 		if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_plugin not called -> CNT: $CNT "; fi
+	fi   # > if[ $CNT -eq 0 ]; then
+
+	if [ $CNT -eq 0 ]; then
+		# PRIO 6: Do a LOADAVERAGE-Check
+		if [ "$LOADAVERAGECHECK" = "true" ] ; then
+			_check_loadaverage &&
+				{
+				let CNT++
+				}
+
+			if $DEBUG ; then _log "DEBUG: _check_system_active(): call _check_loadaverage -> CNT: $CNT "; fi
+		fi
+	else
+		if $DEBUG ; then _log "DEBUG: _check_system_active(): _check_loadaverage not called -> CNT: $CNT "; fi
 	fi   # > if[ $CNT -eq 0 ]; then
 
 	return ${CNT};
@@ -1171,14 +1269,14 @@ if [ -f /tmp/pinglist ]; then
 fi
 
 # Init the counter
-FCNT=$FLAG
+FCNT=$CYCLES
 
 # functional start of script
 if $DEBUG ; then
 	_log "INFO:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 	_log "DEBUG: ### DEBUG:"
 	_log "DEBUG: CLASS and SERVERIP: see above"
-	_log "DEBUG: FLAG: $FLAG"
+	_log "DEBUG: CYCLES: $CYCLES"
 	_log "DEBUG: SLEEP: $SLEEP"
 	_log "DEBUG: CHECKCLOCKACTIVE: $CHECKCLOCKACTIVE"
 	_log "DEBUG: UPHOURS: $UPHOURS"
@@ -1197,6 +1295,8 @@ if $DEBUG ; then
 	_log "DEBUG: PLUGINCHECK: $PLUGINCHECK"
 	_log "DEBUG: ULDLCHECK: $ULDLCHECK"
 	_log "DEBUG: ULDLRATE: $ULDLRATE"
+	_log "DEBUG: LOADAVERAGECHECK: $LOADAVERAGECHECK"
+	_log "DEBUG: LOADAVERAGE: $LOADAVERAGE"
 	# List all PlugIns
 	_log "DEBUG: PlugIns found in /etc/autoshutdown.d:"
 	for ASD_plugin_firstcheck in /etc/autoshutdown.d/*; do
@@ -1205,7 +1305,7 @@ if $DEBUG ; then
 fi   # > if $DEBUG ;then
 
 _log "INFO:---------------- script started ----------------------"
-_log "INFO: ${FLAG} test cycles until shutdown is issued."
+_log "INFO: ${CYCLES} test cycles until shutdown is issued."
 
 if [ "$FAKE" = "true" ]; then
 	_log "INFO: FAKE-Mode in on, dont't wait for first check"
@@ -1238,7 +1338,7 @@ while : ; do
 			fi   # > if [ $FCNT -eq 0 ]; then
 	else
 		# Live IP found so reset count
-		FCNT=${FLAG};
+		FCNT=${CYCLES};
 	fi   # > if _check_system_active
 
 	# Wait for the required time before checking again.
