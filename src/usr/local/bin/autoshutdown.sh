@@ -250,12 +250,11 @@ _ident_num_proc()
 #   name         : _check_processes
 #   parameter      : none
 #   global return   : none
-#   return         : 1      : if no active process has been found
-#               : 0      : if at least one active process has been found
+#   return         : 0      : if no active process has been found
+#               : 1 or more      : if at least one active process has been found
 #
 _check_processes()
 {
-	RVALUE=1
 	NUMPROC=0
 	CHECK=0
 
@@ -486,12 +485,11 @@ _check_loadaverage()
 #   name         : _check_net_status
 #   parameter      : Array-# of NIC
 #   global return   : none
-#   return         : 1      : if no active socket has been found
-#               : 0      : if at least one active socket has been found
+#   return         : 0      : if no active socket has been found
+#                  : 1 or more      : if at least one active socket has been found
 #
 _check_net_status()
 {
-	RVALUE=1
 	NUMPROC=0
 	NICNR_NETSTATUS="$1"
 
@@ -552,6 +550,14 @@ _check_net_status()
 		if [ $RESULT -gt 0 ]; then _log "INFO: _check_net_status(): Found active connection on port $NSOCKET ($PORTPROTOCOL) from $CONIP"; fi
 
 	done   # > NSOCKET in ${NSOCKETNAMES//,/ } ; do
+
+	# Extra Samba-Check for connected Clients only if other processes are negative -> [ $NUMPROC -gt 0 ]
+	if [ $NUMPROC -gt 0 ]; then
+		if [ $(/usr/bin/smbstatus | grep -i "no locked" | wc -l) != "1" ]; then
+			_log "INFO: Samba connected -> no shutdown"
+			let NUMPROC++
+		fi
+	fi
 
 	if ! $DEBUG ; then { [ $NUMPROC -gt 0 ] && _log "INFO: Found $NUMPROC active sockets in $NSOCKETNUMBERS" ; }; fi
 
@@ -825,9 +831,6 @@ _check_config() {
 					_log "WARN: exiting ..."
 					exit 1; }
 	fi
-
-# test
-TEMPPROCNAMES="-"
 
 	if  [ "$TEMPPROCNAMES" = "-" ]; then
 			_log "INFO: TEMPPROCNAMES is disabled - No processes being checked"
@@ -1112,16 +1115,6 @@ _check_system_active()
 		# if NIC is set (not empty) then check IPs connections, else skip it
 		if [ ! -z "${NIC[$NICNR_CHECKSYSTEMACTIVE]}" ]; then
 			if $DEBUG; then _log "DEBUG: _check_system_active() is running - NICNR_CHECKSYSTEMACTIVE: $NICNR_CHECKSYSTEMACTIVE"; fi
-
-# _check_ul_dl_rate $NICNR_CHECKSYSTEMACTIVE
-#
-# echo "script ended for testing"
-# exit 42
-
-#  _check_loadaverage
-# 
-#  echo "script ended for testing"
-#  exit 42
 
 			if [ $CNT -eq 0 ]; then
 				## PRIO 1: Ping each IP address in parameter list. if we find one -> CNT != 0 we'll
