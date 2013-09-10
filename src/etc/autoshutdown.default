@@ -83,7 +83,7 @@ VERBOSE="false"
 # use the verbose mode, with additional output on the command line (default="false")
 # verbose includes DEBUG-Mode
 
-#FAKE="true"
+FAKE="false"
 # set it to "true" for a Fake-Mode: The script runs dry: You can test what happens, without shutting down your PC
 # This mode includes VERBOSE-output automatically, even if VERBOSE is set to "false"
 # Setting it to "false" or if it is not set, the script will run normally.
