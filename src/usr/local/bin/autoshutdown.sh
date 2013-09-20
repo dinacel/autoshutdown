@@ -31,7 +31,7 @@ FACILITY="local6"         	# facility to log to -> see rsyslog.conf
 							# Put the file "autoshutdownlog.conf" in /etc/rsyslog.d/
 
 ######## CONSTANT DEFINITION ########
-VERSION="0.3.9.1"         # script version information
+VERSION="0.3.9.2"         # script version information
 #CTOPPARAM="-d 1 -n 1"         # define common parameters for the top command line "-d 1 -n 1" (Debian/Ubuntu)
 CTOPPARAM="-b -d 1 -n 1"         # define common parameters for the top command line "-b -d 1 -n 1" (Debian/Ubuntu)
 STOPPARAM="-i $CTOPPARAM"   # add specific parameters for the top command line  "-i $CTOPPARAM" (Debian/Ubuntu)
@@ -1234,7 +1234,7 @@ logger -s -t "logger: $(basename "$0" | sed 's/\.sh$//g')[$$]" -p $FACILITY.info
 
 if [ -f /etc/autoshutdown.conf ]; then
 	. /etc/autoshutdown.conf
-	_log "INFO: /etc/shutdown.conf loaded"
+	_log "INFO: /etc/autoshutdown.conf loaded"
 else
 	_log "WARN: cfg-File not found! Please check Path /etc for autoshutdown.conf"
 	exit 1
