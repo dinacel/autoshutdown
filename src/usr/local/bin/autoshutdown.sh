@@ -427,7 +427,7 @@ _check_net_status()
 			if $DEBUG ; then _log "DEBUG: _check_net_status(): netstat -n | grep ESTABLISHED | grep ${WORD}"; fi
 			LINES=$(netstat -n | grep ESTABLISHED | grep ${WORD})
 		else
-			if $DEBUG ; then _log "DEBUG: _check_net_status(): netstat -n | egrep "ESTABLISHED|${NETSTATWORD}" | grep ${WORD}"; fi
+			if $DEBUG ; then _log "DEBUG: _check_net_status(): netstat -n | egrep 'ESTABLISHED|${NETSTATWORD}' | grep ${WORD}"; fi
 			LINES=$(netstat -n | egrep "ESTABLISHED|${NETSTATWORD}" | grep ${WORD})
 		fi
 
